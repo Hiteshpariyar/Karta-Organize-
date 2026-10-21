@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "633428379013",
+    "project_id": "donation-8a59c",
+    "storage_bucket": "donation-8a59c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633428379013:android:b9009e248a0f126d6bb0ec",
+        "android_client_info": {
+          "package_name": "com.tourneyzone.tourney_zone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAArsty8lh59MqZXdHQxFJbKlk3rv7Lq2w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

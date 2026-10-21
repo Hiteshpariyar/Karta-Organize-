@@ -1,0 +1,991 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required, immutable, must match userId and request.auth.uid)
+    //   - displayName: string (required, 2-60 chars)
+    //   - email: string (required, immutable, valid email format, max 254 chars)
+    //   - role: string (required, 'player' | 'organizer' | 'admin'; must be 'player' on creation; updated only by admin)
+    //   - accountStatus: string (required, 'active' | 'pending_verification' | 'suspended'; must be 'active' or 'pending_verification' on creation; updated only by admin)
+    //   - termsVersionAccepted: string (required, 1-32 chars)
+    //   - privacyVersionAccepted: string (required, 1-32 chars)
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
+    //   - policyAcceptedAt: timestamp (optional)
+    //   - emailVerified: bool (optional)
+    //   - photoUrl: string (optional, 0-2048 chars)
+    //   - gameUids: map of string to string (optional, max 30 game entries)
+    //   - notificationPreferences: map of string to bool (optional, max 20 entries)
+    //   - fcmToken: string (optional, 0-512 chars)
+    //
+    // Collection: /users/{userId}/policy_acceptances/{policyType}
+    // Document ID: Policy type identifier (e.g. 'player_terms', 'privacy_policy', 'organizer_terms')
+    // Fields:
+    //   - userId: string (required, immutable, must match parent userId and request.auth.uid)
+    //   - policyType: string (required, matches document ID, 1-50 chars)
+    //   - policyVersion: string (required, 1-32 chars)
+    //   - accepted: bool (required, must be true)
+    //   - acceptedAt: timestamp (optional)
+    //   - acceptedAtClient: string (optional, 1-50 chars)
+    //
+    // Collection: /users/{userId}/registrations/{tournamentId}
+    // Document ID: {tournamentId}
+    // Fields:
+    //   - tournamentId: string (required, immutable, matches document ID, 1-128 chars)
+    //   - uid: string (required, immutable, matches userId and request.auth.uid)
+    //   - tournamentTitle: string (required, 1-150 chars)
+    //   - gameId: string (required, 1-50 chars)
+    //   - gameName: string (required, 1-100 chars)
+    //   - gameUid: string (required, 1-64 chars)
+    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled'; 'pending' or 'confirmed' on create)
+    //   - registeredAt: timestamp (required)
+    //   - tournamentStartsAt: timestamp (optional)
+    //   - bannerUrl: string (optional, 1-2048 chars)
+    //
+    // Collection: /users/{userId}/notifications/{notificationId}
+    // Document ID: Auto-generated notification ID
+    // Fields:
+    //   - title: string (required, 1-150 chars)
+    //   - body: string (required, 1-1000 chars)
+    //   - type: string (required, 'registration' | 'schedule' | 'cancellation' | 'announcement' | 'match_scheduled' | 'schedule_changed' | 'match_approaching' | 'result_finalized' | 'round_advancement' | 'match_cancelled' | 'dispute_update')
+    //   - referenceId: string (optional, 1-128 chars)
+    //   - tournamentId: string (optional, 1-128 chars)
+    //   - matchId: string (optional, 1-128 chars)
+    //   - isRead: bool (required, owner can only update false -> true)
+    //   - createdAt: timestamp (required)
+    //   - readAt: timestamp (optional)
+    //
+    // Collection: /organizer_applications/{userId}
+    // Document ID: Firebase Auth UID of applicant (ensures 1-to-1 association and prevents duplicate submissions)
+    // Fields:
+    //   - uid: string (required, immutable, must match userId and request.auth.uid)
+    //   - applicationId: string (optional, 1-128 chars)
+    //   - applicantName: string (required, 2-100 chars)
+    //   - organizationName: string (required, 2-100 chars)
+    //   - email: string (required, valid email, 5-254 chars)
+    //   - phoneNumber: string (required, 7-20 chars)
+    //   - countryCode: string (optional, 1-10 chars, e.g. '+91')
+    //   - inGameUid: string (optional, 0-50 chars; required if gameUids omitted)
+    //   - games: list of strings (required, 1-20 items)
+    //   - gameUids: map of string to string (optional, max 30 entries; required if inGameUid omitted)
+    //   - tournamentPreference: string (optional, 'freeOnly' | 'paidOnly' | 'both')
+    //   - tournamentTypes: string or list of strings (optional, max 10 items)
+    //   - status: string (required, 'pending' | 'approved' | 'rejected'; must be 'pending' on creation and resubmission)
+    //   - policyAccepted: bool (required, must be true)
+    //   - policyVersion: string (optional, 1-32 chars)
+    //   - policyVersions: map or string (optional)
+    //   - policyAcceptedAt: timestamp (optional)
+    //   - submittedAt: timestamp (optional)
+    //   - reviewedAt: timestamp or null (null on create/user resubmission; populated only by admin on review)
+    //   - reviewedBy: string or null (null on create/user resubmission; populated only by admin on review)
+    //   - rejectionReason: string or null (null on create/user resubmission; populated only by admin on rejection)
+    //   - referenceId: string (optional, 1-64 chars)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: /tournaments/{tournamentId}
+    // Document ID: Auto-generated or custom tournament ID
+    // Fields:
+    //   - title: string (required, 3-100 chars)
+    //   - description: string (required, 0-2000 chars)
+    //   - gameId: string (required, 1-50 chars)
+    //   - gameName: string (required, 1-100 chars)
+    //   - bannerUrl: string (optional, 1-2048 chars)
+    //   - organizerUid: string (required, immutable, 1-128 chars)
+    //   - organizerDisplayName: string (required, 2-100 chars)
+    //   - format: string (optional, 1-50 chars, e.g. 'solo' | 'duo' | 'squad')
+    //   - teamSize: int (optional, 1-10)
+    //   - status: string (required, 'draft' | 'published' | 'upcoming' | 'registration_open' | 'registration_closed' | 'full' | 'live' | 'completed' | 'cancelled')
+    //   - entryType: string (required, 'free' | 'paid')
+    //   - entryFee: number (required, >= 0)
+    //   - prizeDescription: string (optional, 1-500 chars)
+    //   - maxParticipants: int (required, 1-1000)
+    //   - minParticipants: int (optional, 0-1000)
+    //   - registeredCount: int (required, >= 0, <= maxParticipants, immutable by organizer)
+    //   - registrationOpensAt: timestamp (required)
+    //   - registrationClosesAt: timestamp (required)
+    //   - startsAt: timestamp (required)
+    //   - rules: string (optional, 0-5000 chars)
+    //   - eligibility: string (optional, 0-2000 chars)
+    //   - matchFormat: string (optional, 0-1000 chars)
+    //   - cancellationPolicy: string (optional, 0-2000 chars)
+    //   - isFeatured: bool (optional)
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
+    //   - publishedAt: timestamp (optional)
+    //   - cancelledAt: timestamp (optional)
+    //   - cancellationReason: string (optional, 1-1000 chars)
+    //
+    // Collection: /tournaments/{tournamentId}/registrations/{uid}
+    // Document ID: Firebase Auth UID of registered player
+    // Fields:
+    //   - tournamentId: string (required, immutable, matches parent tournamentId, 1-128 chars)
+    //   - uid: string (required, immutable, matches document ID and request.auth.uid)
+    //   - tournamentTitle: string (required, 1-150 chars)
+    //   - gameId: string (required, 1-50 chars)
+    //   - gameName: string (required, 1-100 chars)
+    //   - gameUid: string (required, 1-64 chars)
+    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled'; 'pending' or 'confirmed' on create)
+    //   - registeredAt: timestamp (required)
+    //   - tournamentStartsAt: timestamp (optional)
+    //
+    // Collection: /tournaments/{tournamentId}/matches/{matchId}
+    // Document ID: Auto-generated or custom match ID
+    // Fields:
+    //   - matchId: string (optional, 1-128 chars)
+    //   - tournamentId: string (required, immutable, 1-128 chars, matches parent tournament)
+    //   - organizerUid: string (required, immutable, 1-128 chars)
+    //   - title: string (optional, 1-100 chars)
+    //   - roundId: string (optional, 1-128 chars)
+    //   - roundNumber: int (required, 1-100)
+    //   - matchNumber: int (required, 1-1000)
+    //   - matchType: string (optional, 1-50 chars)
+    //   - participantIds: list of strings (required, size <= 100)
+    //   - teamIds: list of strings (optional, size <= 100)
+    //   - checkedInParticipantIds: list of strings (optional, size <= 100)
+    //   - scheduledAt: timestamp (required)
+    //   - checkInOpensAt: timestamp (optional)
+    //   - status: string (required, 'scheduled' | 'check_in' | 'live' | 'result_pending' | 'completed' | 'disputed' | 'cancelled')
+    //   - result: map (optional, size <= 30)
+    //   - winnerParticipantId: string (optional, 1-128 chars)
+    //   - winnerTeamId: string (optional, 1-128 chars)
+    //   - resultSubmittedBy: string (optional, 1-128 chars)
+    //   - resultSubmittedAt: timestamp (optional)
+    //   - resultVerifiedBy: string (optional, 1-128 chars)
+    //   - resultVerifiedAt: timestamp (optional)
+    //   - evidenceUrls: list of strings (optional, size <= 10)
+    //   - notes: string (optional, 0-1000 chars)
+    //   - instructions: string (optional, 0-2000 chars)
+    //   - disputeReason: string (optional, 0-1000 chars)
+    //   - disputedBy: string (optional, 1-128 chars)
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: /games/{gameId}
+    // Document ID: Unique game slug (e.g. 'bgmi', 'freefire', 'codm', 'valorant')
+    // Fields:
+    //   - id: string (required, immutable, matches document ID, 1-50 chars)
+    //   - name: string (required, 1-100 chars)
+    //   - category: string (required, 1-50 chars)
+    //   - uidLabel: string (optional, 1-100 chars)
+    //   - placeholderUid: string (optional, 1-100 chars)
+    //   - bannerUrl: string (optional, 1-2048 chars)
+    //   - iconUrl: string (optional, 1-2048 chars)
+    //   - description: string (optional, 0-1000 chars)
+    //   - isActive: bool (optional)
+    //   - createdAt: timestamp (optional)
+    //   - updatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Global Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.get('admin', false) == true ||
+        request.auth.token.get('role', '') == 'admin' ||
+        (request.auth.token.email_verified == true &&
+         request.auth.token.email in ['hiteshpariyar73@gmail.com', 'admin@tourneyzone.com']) ||
+        (request.auth.token.get('email', '') in ['hiteshpariyar73@gmail.com', 'admin@tourneyzone.com']) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isOrganizer() {
+      return isAuthenticated() && (
+        request.auth.token.get('organizer', false) == true ||
+        request.auth.token.get('role', '') == 'organizer' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer') ||
+        (exists(/databases/$(database)/documents/organizer_applications/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/organizer_applications/$(request.auth.uid)).data.status == 'approved')
+      );
+    }
+
+    function isVerifiedOrganizer() {
+      return isAdmin() || (
+        isOrganizer() &&
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus != 'suspended')
+      );
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 5 &&
+        email.size() <= 254 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function validString(str, minLen, maxLen) {
+      return str is string &&
+        str.size() >= minLen &&
+        str.size() <= maxLen;
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // User Profile Domain Validators (/users/{userId})
+    // ===============================================================
+
+    function isValidUserBase(data, userId) {
+      let allowedKeys = [
+        'uid', 'displayName', 'email', 'role', 'accountStatus',
+        'termsVersionAccepted', 'privacyVersionAccepted',
+        'createdAt', 'updatedAt', 'policyAcceptedAt', 'emailVerified',
+        'photoUrl', 'gameUids', 'notificationPreferences', 'fcmToken'
+      ];
+      let requiredKeys = [
+        'uid', 'displayName', 'email', 'role', 'accountStatus',
+        'termsVersionAccepted', 'privacyVersionAccepted'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.uid == userId &&
+        validString(data.displayName, 2, 60) &&
+        isValidEmail(data.email) &&
+        data.role in ['player', 'organizer', 'admin'] &&
+        data.accountStatus in ['active', 'suspended', 'pending_verification'] &&
+        validString(data.termsVersionAccepted, 1, 32) &&
+        validString(data.privacyVersionAccepted, 1, 32) &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp) &&
+        (!('policyAcceptedAt' in data) || data.policyAcceptedAt == null || data.policyAcceptedAt is timestamp) &&
+        (!('emailVerified' in data) || data.emailVerified == null || data.emailVerified is bool) &&
+        (!('photoUrl' in data) || data.photoUrl == null || validString(data.photoUrl, 0, 2048)) &&
+        (!('gameUids' in data) || data.gameUids == null || (data.gameUids is map && data.gameUids.size() <= 30)) &&
+        (!('notificationPreferences' in data) || data.notificationPreferences == null || (data.notificationPreferences is map && data.notificationPreferences.size() <= 20)) &&
+        (!('fcmToken' in data) || data.fcmToken == null || validString(data.fcmToken, 0, 512));
+    }
+
+    function isValidUserCreate(data, userId) {
+      return isValidUserBase(data, userId) &&
+        data.role == 'player' &&
+        data.accountStatus in ['active', 'pending_verification'];
+    }
+
+    function isValidUserOwnerUpdate(data, userId) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+
+      return isValidUserBase(data, userId) &&
+        affected.hasOnly(['displayName', 'photoUrl', 'gameUids', 'notificationPreferences', 'fcmToken', 'updatedAt']) &&
+        areImmutableFieldsUnchanged(['uid', 'email', 'role', 'accountStatus', 'createdAt', 'termsVersionAccepted', 'privacyVersionAccepted', 'policyAcceptedAt', 'emailVerified']) &&
+        data.uid == resource.data.uid &&
+        data.email == resource.data.email &&
+        data.role == resource.data.role &&
+        data.accountStatus == resource.data.accountStatus;
+    }
+
+    function isValidUserAdminUpdate(data, userId) {
+      return isValidUserBase(data, userId) &&
+        areImmutableFieldsUnchanged(['uid', 'createdAt']) &&
+        data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Policy Acceptance Domain Validators (/users/{userId}/policy_acceptances/{policyType})
+    // ===============================================================
+
+    function isValidPolicyAcceptance(data, userId, policyType) {
+      let allowedKeys = [
+        'userId', 'policyType', 'policyVersion',
+        'accepted', 'acceptedAt', 'acceptedAtClient'
+      ];
+      let requiredKeys = ['userId', 'policyType', 'policyVersion', 'accepted'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.userId == userId &&
+        data.policyType == policyType &&
+        validString(data.policyVersion, 1, 32) &&
+        data.accepted == true &&
+        (!('acceptedAt' in data) || data.acceptedAt == null || data.acceptedAt is timestamp) &&
+        (!('acceptedAtClient' in data) || data.acceptedAtClient == null || validString(data.acceptedAtClient, 1, 50));
+    }
+
+    // ===============================================================
+    // Registration Domain Validators (User and Tournament Registrations)
+    // ===============================================================
+
+    function isValidRegistrationBase(data, uid, tournamentId) {
+      let allowedKeys = [
+        'tournamentId', 'uid', 'tournamentTitle', 'gameId', 'gameName',
+        'gameUid', 'status', 'registeredAt', 'tournamentStartsAt', 'bannerUrl'
+      ];
+      let requiredKeys = [
+        'tournamentId', 'uid', 'tournamentTitle', 'gameId', 'gameName',
+        'gameUid', 'status', 'registeredAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.uid == uid &&
+        data.tournamentId == tournamentId &&
+        validString(data.tournamentTitle, 1, 150) &&
+        validString(data.gameId, 1, 50) &&
+        validString(data.gameName, 1, 100) &&
+        validString(data.gameUid, 1, 64) &&
+        data.status in ['pending', 'confirmed', 'waitlist', 'cancelled'] &&
+        data.registeredAt is timestamp &&
+        (!('tournamentStartsAt' in data) || data.tournamentStartsAt == null || data.tournamentStartsAt is timestamp) &&
+        (!('bannerUrl' in data) || data.bannerUrl == null || validString(data.bannerUrl, 1, 2048));
+    }
+
+    function isValidRegistrationCreate(data, uid, tournamentId) {
+      return isValidRegistrationBase(data, uid, tournamentId) &&
+        data.status in ['pending', 'confirmed'];
+    }
+
+    // ===============================================================
+    // Notification Domain Validators (/users/{userId}/notifications/{notificationId})
+    // ===============================================================
+
+    function isValidNotificationBase(data) {
+      let allowedKeys = [
+        'title', 'body', 'type', 'referenceId', 'tournamentId',
+        'matchId', 'isRead', 'createdAt', 'readAt'
+      ];
+      let requiredKeys = ['title', 'body', 'type', 'isRead', 'createdAt'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.title, 1, 150) &&
+        validString(data.body, 1, 1000) &&
+        data.type in [
+          'registration', 'schedule', 'cancellation', 'announcement',
+          'match_scheduled', 'schedule_changed', 'match_approaching',
+          'result_finalized', 'round_advancement', 'match_cancelled', 'dispute_update'
+        ] &&
+        (!('referenceId' in data) || data.referenceId == null || validString(data.referenceId, 1, 128)) &&
+        (!('tournamentId' in data) || data.tournamentId == null || validString(data.tournamentId, 1, 128)) &&
+        (!('matchId' in data) || data.matchId == null || validString(data.matchId, 1, 128)) &&
+        (!('readAt' in data) || data.readAt == null || data.readAt is timestamp) &&
+        data.isRead is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidNotificationCreate(data) {
+      return isValidNotificationBase(data) &&
+        data.isRead == false;
+    }
+
+    function isValidNotificationOwnerUpdate(data) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+
+      return isValidNotificationBase(data) &&
+        affected.hasOnly(['isRead', 'readAt']) &&
+        data.isRead == true &&
+        areImmutableFieldsUnchanged(['title', 'body', 'type', 'referenceId', 'tournamentId', 'matchId', 'createdAt']) &&
+        data.title == resource.data.title &&
+        data.body == resource.data.body &&
+        data.type == resource.data.type &&
+        data.createdAt == resource.data.createdAt;
+    }
+
+    // ===============================================================
+    // Organizer Application Domain Validators (/organizer_applications/{userId})
+    // ===============================================================
+
+    function hasNoReviewData(data) {
+      return (!('reviewedBy' in data) || data.reviewedBy == null) &&
+        (!('reviewedAt' in data) || data.reviewedAt == null) &&
+        (!('rejectionReason' in data) || data.rejectionReason == null);
+    }
+
+    function isValidOrganizerApplicationBase(data, userId) {
+      let allowedKeys = [
+        'uid', 'applicationId', 'applicantName', 'organizationName',
+        'email', 'phoneNumber', 'countryCode', 'inGameUid', 'games', 'gameUids',
+        'tournamentPreference', 'tournamentTypes', 'status', 'policyAccepted',
+        'policyVersion', 'policyVersions', 'policyAcceptedAt', 'submittedAt',
+        'reviewedAt', 'reviewedBy', 'rejectionReason', 'referenceId', 'updatedAt'
+      ];
+      let requiredKeys = [
+        'uid', 'applicantName', 'organizationName', 'email',
+        'phoneNumber', 'games', 'status', 'policyAccepted'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.uid == userId &&
+        validString(data.applicantName, 2, 100) &&
+        validString(data.organizationName, 2, 100) &&
+        isValidEmail(data.email) &&
+        validString(data.phoneNumber, 7, 20) &&
+        (!('inGameUid' in data) || data.inGameUid == null || validString(data.inGameUid, 0, 50)) &&
+        (
+          ('inGameUid' in data && data.inGameUid is string && data.inGameUid.size() >= 3) ||
+          ('gameUids' in data && data.gameUids is map && data.gameUids.size() > 0)
+        ) &&
+        (!('gameUids' in data) || data.gameUids == null || (data.gameUids is map && data.gameUids.size() <= 30)) &&
+        data.games is list &&
+        data.games.size() >= 1 &&
+        data.games.size() <= 20 &&
+        data.policyAccepted == true &&
+        data.status in ['pending', 'approved', 'rejected'] &&
+        (!('countryCode' in data) || data.countryCode == null || validString(data.countryCode, 1, 10)) &&
+        (!('applicationId' in data) || data.applicationId == null || validString(data.applicationId, 1, 128)) &&
+        (!('tournamentPreference' in data) || data.tournamentPreference == null || data.tournamentPreference in ['freeOnly', 'paidOnly', 'both']) &&
+        (!('tournamentTypes' in data) || data.tournamentTypes == null || (data.tournamentTypes is list && data.tournamentTypes.size() <= 10) || validString(data.tournamentTypes, 1, 50)) &&
+        (!('policyVersion' in data) || data.policyVersion == null || validString(data.policyVersion, 1, 32)) &&
+        (!('policyVersions' in data) || data.policyVersions == null || (data.policyVersions is map && data.policyVersions.size() <= 10) || validString(data.policyVersions, 1, 50)) &&
+        (!('policyAcceptedAt' in data) || data.policyAcceptedAt == null || data.policyAcceptedAt is timestamp) &&
+        (!('submittedAt' in data) || data.submittedAt == null || data.submittedAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp) &&
+        (!('referenceId' in data) || data.referenceId == null || validString(data.referenceId, 1, 64)) &&
+        (!('reviewedAt' in data) || data.reviewedAt == null || data.reviewedAt is timestamp) &&
+        (!('reviewedBy' in data) || data.reviewedBy == null || validString(data.reviewedBy, 1, 128)) &&
+        (!('rejectionReason' in data) || data.rejectionReason == null || validString(data.rejectionReason, 1, 1000));
+    }
+
+    function isValidOrganizerApplicationCreate(data, userId) {
+      return isValidOrganizerApplicationBase(data, userId) &&
+        data.status == 'pending' &&
+        hasNoReviewData(data);
+    }
+
+    function isValidOrganizerApplicationResubmit(data, userId) {
+      return isValidOrganizerApplicationBase(data, userId) &&
+        resource.data.status == 'rejected' &&
+        data.status == 'pending' &&
+        hasNoReviewData(data) &&
+        areImmutableFieldsUnchanged(['uid']) &&
+        data.uid == resource.data.uid;
+    }
+
+    function isValidOrganizerApplicationAdminUpdate(data, userId) {
+      return isValidOrganizerApplicationBase(data, userId) &&
+        areImmutableFieldsUnchanged(['uid']) &&
+        data.uid == resource.data.uid &&
+        (
+          (data.status == 'approved' &&
+           data.reviewedBy is string && data.reviewedBy.size() >= 1 &&
+           (data.reviewedBy == request.auth.uid || data.reviewedBy.size() <= 128) &&
+           data.reviewedAt is timestamp) ||
+          (data.status == 'rejected' &&
+           validString(data.rejectionReason, 1, 1000) &&
+           data.reviewedBy is string && data.reviewedBy.size() >= 1 &&
+           (data.reviewedBy == request.auth.uid || data.reviewedBy.size() <= 128) &&
+           data.reviewedAt is timestamp) ||
+          (data.status == 'pending')
+        );
+    }
+
+    // ===============================================================
+    // Tournament Domain Validators (/tournaments/{tournamentId})
+    // ===============================================================
+
+    function isValidTournamentBase(data) {
+      let allowedKeys = [
+        'title', 'description', 'gameId', 'gameName', 'bannerUrl',
+        'organizerUid', 'organizerDisplayName', 'format', 'teamSize',
+        'status', 'entryType', 'entryFee', 'prizeDescription',
+        'maxParticipants', 'minParticipants', 'registeredCount',
+        'registrationOpensAt', 'registrationClosesAt', 'startsAt',
+        'rules', 'eligibility', 'matchFormat', 'cancellationPolicy',
+        'isFeatured', 'createdAt', 'updatedAt', 'publishedAt',
+        'cancelledAt', 'cancellationReason'
+      ];
+      let requiredKeys = [
+        'title', 'description', 'gameId', 'gameName',
+        'organizerUid', 'organizerDisplayName', 'status', 'entryType',
+        'entryFee', 'maxParticipants', 'registeredCount',
+        'registrationOpensAt', 'registrationClosesAt', 'startsAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.title, 3, 100) &&
+        validString(data.description, 0, 2000) &&
+        validString(data.gameId, 1, 50) &&
+        validString(data.gameName, 1, 100) &&
+        (!('bannerUrl' in data) || data.bannerUrl == null || validString(data.bannerUrl, 1, 2048)) &&
+        validString(data.organizerUid, 1, 128) &&
+        validString(data.organizerDisplayName, 2, 100) &&
+        (!('format' in data) || data.format == null || validString(data.format, 1, 50)) &&
+        (!('teamSize' in data) || data.teamSize == null || (data.teamSize is int && data.teamSize >= 1 && data.teamSize <= 10)) &&
+        data.status in ['draft', 'upcoming', 'published', 'registration_open', 'registration_closed', 'full', 'live', 'completed', 'cancelled'] &&
+        data.entryType in ['free', 'paid'] &&
+        (data.entryFee is int || data.entryFee is float) && data.entryFee >= 0 &&
+        (!('prizeDescription' in data) || data.prizeDescription == null || validString(data.prizeDescription, 1, 500)) &&
+        data.maxParticipants is int && data.maxParticipants > 0 && data.maxParticipants <= 1000 &&
+        (!('minParticipants' in data) || data.minParticipants == null || (data.minParticipants is int && data.minParticipants >= 0 && data.minParticipants <= data.maxParticipants)) &&
+        data.registeredCount is int && data.registeredCount >= 0 &&
+        data.registrationOpensAt is timestamp &&
+        data.registrationClosesAt is timestamp &&
+        data.startsAt is timestamp &&
+        (!('rules' in data) || data.rules == null || validString(data.rules, 0, 5000)) &&
+        (!('eligibility' in data) || data.eligibility == null || validString(data.eligibility, 0, 2000)) &&
+        (!('matchFormat' in data) || data.matchFormat == null || validString(data.matchFormat, 0, 1000)) &&
+        (!('cancellationPolicy' in data) || data.cancellationPolicy == null || validString(data.cancellationPolicy, 0, 2000)) &&
+        (!('isFeatured' in data) || data.isFeatured is bool) &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp) &&
+        (!('publishedAt' in data) || data.publishedAt == null || data.publishedAt is timestamp) &&
+        (!('cancelledAt' in data) || data.cancelledAt == null || data.cancelledAt is timestamp) &&
+        (!('cancellationReason' in data) || data.cancellationReason == null || validString(data.cancellationReason, 1, 1000));
+    }
+
+    function isValidTournamentCreate(data) {
+      return isValidTournamentBase(data) &&
+        data.registeredCount == 0 &&
+        data.status in ['draft', 'published', 'upcoming', 'registration_open'] &&
+        (!('isFeatured' in data) || data.isFeatured == false || isAdmin()) &&
+        (!('cancelledAt' in data) || data.cancelledAt == null) &&
+        (!('cancellationReason' in data) || data.cancellationReason == null);
+    }
+
+    function isValidTournamentOrganizerStatusTransition(oldStatus, newStatus, data) {
+      return (
+        oldStatus == newStatus ||
+        (oldStatus == 'draft' && newStatus in ['published', 'upcoming', 'registration_open', 'cancelled']) ||
+        (oldStatus in ['published', 'upcoming'] && newStatus in ['registration_open', 'cancelled']) ||
+        (oldStatus == 'registration_open' && newStatus in ['registration_closed', 'full', 'cancelled']) ||
+        (oldStatus == 'full' && newStatus in ['registration_open', 'registration_closed', 'cancelled']) ||
+        (oldStatus == 'registration_closed' && newStatus in ['live', 'cancelled']) ||
+        (oldStatus == 'live' && newStatus in ['completed', 'cancelled'])
+      ) &&
+      (newStatus != 'cancelled' || (validString(data.cancellationReason, 1, 1000) && data.cancelledAt is timestamp));
+    }
+
+    function isValidTournamentOrganizerUpdate(data) {
+      return isValidTournamentBase(data) &&
+        areImmutableFieldsUnchanged(['organizerUid', 'createdAt', 'registeredCount']) &&
+        data.organizerUid == resource.data.organizerUid &&
+        data.maxParticipants >= resource.data.registeredCount &&
+        (resource.data.registeredCount == 0 || areImmutableFieldsUnchanged(['gameId', 'entryType', 'entryFee', 'format', 'teamSize'])) &&
+        isValidTournamentOrganizerStatusTransition(resource.data.status, data.status, data) &&
+        (!('isFeatured' in data) || data.isFeatured == resource.data.isFeatured || isAdmin());
+    }
+
+    function isValidPlayerTournamentSlotUpdate(tournamentId) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+      let newCount = request.resource.data.registeredCount;
+      let oldCount = resource.data.registeredCount;
+      let maxSlots = resource.data.maxParticipants;
+      let isNowFull = (newCount == maxSlots);
+
+      return isAuthenticated() &&
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus != 'suspended') &&
+        isValidTournamentBase(request.resource.data) &&
+        resource.data.status == 'registration_open' &&
+        affected.hasOnly(['registeredCount', 'status', 'updatedAt']) &&
+        newCount == oldCount + 1 &&
+        newCount <= maxSlots &&
+        (
+          (isNowFull && (request.resource.data.status == 'full' || request.resource.data.status == resource.data.status)) ||
+          (!isNowFull && request.resource.data.status == resource.data.status)
+        ) &&
+        areImmutableFieldsUnchanged([
+          'title', 'description', 'gameId', 'gameName', 'bannerUrl',
+          'organizerUid', 'organizerDisplayName', 'entryType', 'entryFee',
+          'prizeDescription', 'maxParticipants', 'registrationOpensAt',
+          'registrationClosesAt', 'startsAt', 'rules', 'eligibility',
+          'matchFormat', 'cancellationPolicy', 'isFeatured', 'createdAt'
+        ]) &&
+        getAfter(/databases/$(database)/documents/tournaments/$(tournamentId)/registrations/$(request.auth.uid)) != null;
+    }
+
+    // ===============================================================
+    // Match Domain Validators (/tournaments/{tournamentId}/matches/{matchId})
+    // ===============================================================
+
+    function isValidMatchBase(data, tournamentId) {
+      let allowedKeys = [
+        'matchId', 'tournamentId', 'organizerUid', 'title', 'roundId',
+        'roundNumber', 'matchNumber', 'matchType', 'participantIds',
+        'teamIds', 'checkedInParticipantIds', 'scheduledAt', 'checkInOpensAt',
+        'status', 'result', 'winnerParticipantId', 'winnerTeamId',
+        'resultSubmittedBy', 'resultSubmittedAt', 'resultVerifiedBy',
+        'resultVerifiedAt', 'evidenceUrls', 'notes', 'instructions',
+        'disputeReason', 'disputedBy', 'createdAt', 'updatedAt'
+      ];
+      let requiredKeys = [
+        'tournamentId', 'organizerUid', 'roundNumber', 'matchNumber',
+        'participantIds', 'scheduledAt', 'status'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.tournamentId == tournamentId &&
+        validString(data.organizerUid, 1, 128) &&
+        data.roundNumber is int && data.roundNumber >= 1 && data.roundNumber <= 100 &&
+        data.matchNumber is int && data.matchNumber >= 1 && data.matchNumber <= 1000 &&
+        data.participantIds is list && data.participantIds.size() <= 100 &&
+        data.scheduledAt is timestamp &&
+        data.status in ['scheduled', 'check_in', 'live', 'result_pending', 'completed', 'disputed', 'cancelled'] &&
+        (!('matchId' in data) || data.matchId == null || validString(data.matchId, 1, 128)) &&
+        (!('title' in data) || data.title == null || validString(data.title, 1, 100)) &&
+        (!('roundId' in data) || data.roundId == null || validString(data.roundId, 1, 128)) &&
+        (!('matchType' in data) || data.matchType == null || validString(data.matchType, 1, 50)) &&
+        (!('teamIds' in data) || data.teamIds == null || (data.teamIds is list && data.teamIds.size() <= 100)) &&
+        (!('checkedInParticipantIds' in data) || data.checkedInParticipantIds == null || (data.checkedInParticipantIds is list && data.checkedInParticipantIds.size() <= 100)) &&
+        (!('checkInOpensAt' in data) || data.checkInOpensAt == null || data.checkInOpensAt is timestamp) &&
+        (!('result' in data) || data.result == null || (data.result is map && data.result.size() <= 30)) &&
+        (!('winnerParticipantId' in data) || data.winnerParticipantId == null || validString(data.winnerParticipantId, 1, 128)) &&
+        (!('winnerTeamId' in data) || data.winnerTeamId == null || validString(data.winnerTeamId, 1, 128)) &&
+        (!('resultSubmittedBy' in data) || data.resultSubmittedBy == null || validString(data.resultSubmittedBy, 1, 128)) &&
+        (!('resultSubmittedAt' in data) || data.resultSubmittedAt == null || data.resultSubmittedAt is timestamp) &&
+        (!('resultVerifiedBy' in data) || data.resultVerifiedBy == null || validString(data.resultVerifiedBy, 1, 128)) &&
+        (!('resultVerifiedAt' in data) || data.resultVerifiedAt == null || data.resultVerifiedAt is timestamp) &&
+        (!('evidenceUrls' in data) || data.evidenceUrls == null || (data.evidenceUrls is list && data.evidenceUrls.size() <= 10)) &&
+        (!('notes' in data) || data.notes == null || validString(data.notes, 0, 1000)) &&
+        (!('instructions' in data) || data.instructions == null || validString(data.instructions, 0, 2000)) &&
+        (!('disputeReason' in data) || data.disputeReason == null || validString(data.disputeReason, 0, 1000)) &&
+        (!('disputedBy' in data) || data.disputedBy == null || validString(data.disputedBy, 1, 128)) &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    function isValidMatchCreate(data, tournamentId) {
+      return isValidMatchBase(data, tournamentId) &&
+        data.status in ['scheduled', 'check_in', 'live'] &&
+        (!('winnerParticipantId' in data) || data.winnerParticipantId == null) &&
+        (!('winnerTeamId' in data) || data.winnerTeamId == null) &&
+        (!('resultVerifiedBy' in data) || data.resultVerifiedBy == null) &&
+        (!('resultVerifiedAt' in data) || data.resultVerifiedAt == null);
+    }
+
+    function isValidMatchStatusTransition(oldStatus, newStatus, data) {
+      return (
+        oldStatus == newStatus ||
+        (oldStatus == 'scheduled' && newStatus in ['check_in', 'live', 'cancelled']) ||
+        (oldStatus == 'check_in' && newStatus in ['live', 'cancelled']) ||
+        (oldStatus == 'live' && newStatus in ['result_pending', 'completed', 'disputed', 'cancelled']) ||
+        (oldStatus == 'result_pending' && newStatus in ['completed', 'disputed', 'live', 'cancelled']) ||
+        (oldStatus == 'disputed' && newStatus in ['result_pending', 'completed', 'cancelled'])
+      ) &&
+      (newStatus != 'completed' || (
+        data.resultVerifiedBy is string &&
+        data.resultVerifiedBy.size() >= 1 &&
+        data.resultVerifiedAt is timestamp
+      ));
+    }
+
+    function isValidMatchOrganizerUpdate(data, tournamentId) {
+      return isValidMatchBase(data, tournamentId) &&
+        areImmutableFieldsUnchanged(['tournamentId', 'organizerUid', 'createdAt']) &&
+        data.tournamentId == resource.data.tournamentId &&
+        data.organizerUid == resource.data.organizerUid &&
+        isValidMatchStatusTransition(resource.data.status, data.status, data);
+    }
+
+    function isValidMatchParticipantResultSubmit(data, tournamentId) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+
+      return isValidMatchBase(data, tournamentId) &&
+        resource.data.status in ['live', 'result_pending'] &&
+        data.status == 'result_pending' &&
+        data.resultSubmittedBy == request.auth.uid &&
+        data.resultSubmittedAt is timestamp &&
+        affected.hasOnly(['result', 'evidenceUrls', 'notes', 'resultSubmittedBy', 'resultSubmittedAt', 'status', 'updatedAt']) &&
+        areImmutableFieldsUnchanged([
+          'matchId', 'tournamentId', 'organizerUid', 'roundId', 'roundNumber',
+          'matchNumber', 'matchType', 'participantIds', 'teamIds',
+          'scheduledAt', 'checkInOpensAt', 'winnerParticipantId',
+          'winnerTeamId', 'resultVerifiedBy', 'resultVerifiedAt', 'createdAt'
+        ]);
+    }
+
+    function isValidMatchParticipantDispute(data, tournamentId) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+
+      return isValidMatchBase(data, tournamentId) &&
+        resource.data.status in ['live', 'result_pending'] &&
+        data.status == 'disputed' &&
+        validString(data.disputeReason, 1, 1000) &&
+        data.disputedBy == request.auth.uid &&
+        affected.hasOnly(['disputeReason', 'disputedBy', 'status', 'updatedAt']) &&
+        areImmutableFieldsUnchanged([
+          'matchId', 'tournamentId', 'organizerUid', 'roundId', 'roundNumber',
+          'matchNumber', 'matchType', 'participantIds', 'teamIds',
+          'scheduledAt', 'checkInOpensAt', 'winnerParticipantId',
+          'winnerTeamId', 'resultVerifiedBy', 'resultVerifiedAt', 'createdAt'
+        ]);
+    }
+
+    function isValidMatchParticipantCheckIn(data, tournamentId) {
+      let diff = request.resource.data.diff(resource.data);
+      let affected = diff.affectedKeys();
+
+      return isValidMatchBase(data, tournamentId) &&
+        resource.data.status in ['scheduled', 'check_in'] &&
+        affected.hasOnly(['checkedInParticipantIds', 'updatedAt']) &&
+        data.checkedInParticipantIds is list &&
+        data.checkedInParticipantIds.size() <= 100 &&
+        request.auth.uid in data.checkedInParticipantIds &&
+        (!('checkedInParticipantIds' in resource.data) || resource.data.checkedInParticipantIds == null || !(request.auth.uid in resource.data.checkedInParticipantIds)) &&
+        areImmutableFieldsUnchanged([
+          'matchId', 'tournamentId', 'organizerUid', 'roundId', 'roundNumber',
+          'matchNumber', 'matchType', 'participantIds', 'teamIds',
+          'scheduledAt', 'checkInOpensAt', 'status', 'winnerParticipantId',
+          'winnerTeamId', 'resultVerifiedBy', 'resultVerifiedAt', 'createdAt'
+        ]);
+    }
+
+    // ===============================================================
+    // Game Catalog Domain Validators (/games/{gameId})
+    // ===============================================================
+
+    function isValidGame(data, gameId) {
+      let allowedKeys = [
+        'id', 'name', 'category', 'uidLabel', 'placeholderUid',
+        'bannerUrl', 'iconUrl', 'description', 'isActive',
+        'createdAt', 'updatedAt'
+      ];
+      let requiredKeys = ['id', 'name', 'category'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.id == gameId &&
+        validString(data.name, 1, 100) &&
+        validString(data.category, 1, 50) &&
+        (!('uidLabel' in data) || data.uidLabel == null || validString(data.uidLabel, 1, 100)) &&
+        (!('placeholderUid' in data) || data.placeholderUid == null || validString(data.placeholderUid, 1, 100)) &&
+        (!('bannerUrl' in data) || data.bannerUrl == null || validString(data.bannerUrl, 1, 2048)) &&
+        (!('iconUrl' in data) || data.iconUrl == null || validString(data.iconUrl, 1, 2048)) &&
+        (!('description' in data) || data.description == null || validString(data.description, 0, 1000)) &&
+        (!('isActive' in data) || data.isActive is bool) &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Root Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Users collection: /users/{userId}
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId) &&
+        isValidUserCreate(request.resource.data, userId);
+
+      allow update: if (isOwner(userId) && isValidUserOwnerUpdate(request.resource.data, userId)) ||
+                       (isAdmin() && isValidUserAdminUpdate(request.resource.data, userId));
+
+      allow delete: if isAdmin();
+
+      // 1.1 Policy acceptances subcollection: /users/{userId}/policy_acceptances/{policyType}
+      match /policy_acceptances/{policyType} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create: if isOwner(userId) &&
+          isValidPolicyAcceptance(request.resource.data, userId, policyType);
+
+        allow update: if isOwner(userId) &&
+          isValidPolicyAcceptance(request.resource.data, userId, policyType) &&
+          areImmutableFieldsUnchanged(['userId', 'policyType']) &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.policyType == resource.data.policyType;
+
+        allow delete: if false;
+      }
+
+      // 1.2 User registrations subcollection: /users/{userId}/registrations/{tournamentId}
+      match /registrations/{tournamentId} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create: if (isOwner(userId) || isAdmin()) &&
+          isValidRegistrationCreate(request.resource.data, userId, tournamentId);
+
+        allow update: if isAdmin() &&
+          isValidRegistrationBase(request.resource.data, userId, tournamentId);
+
+        allow delete: if isAdmin();
+      }
+
+      // 1.3 User notifications subcollection: /users/{userId}/notifications/{notificationId}
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create: if (isOwner(userId) || isAdmin()) &&
+          isValidNotificationCreate(request.resource.data);
+
+        allow update: if (isOwner(userId) && isValidNotificationOwnerUpdate(request.resource.data)) ||
+                         (isAdmin() && isValidNotificationBase(request.resource.data));
+
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // 1.4 User settings subcollection: /users/{userId}/settings/{settingId}
+      match /settings/{settingId} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create, update: if isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['matchReminders', 'scheduleChanges', 'resultUpdates', 'announcements', 'pushEnabled', 'updatedAt']) &&
+          (!('matchReminders' in request.resource.data) || request.resource.data.matchReminders is bool) &&
+          (!('scheduleChanges' in request.resource.data) || request.resource.data.scheduleChanges is bool) &&
+          (!('resultUpdates' in request.resource.data) || request.resource.data.resultUpdates is bool) &&
+          (!('announcements' in request.resource.data) || request.resource.data.announcements is bool) &&
+          (!('pushEnabled' in request.resource.data) || request.resource.data.pushEnabled is bool) &&
+          (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // 2. Organizer applications collection: /organizer_applications/{userId}
+    match /organizer_applications/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId) &&
+        isValidOrganizerApplicationCreate(request.resource.data, userId);
+
+      allow update: if (isOwner(userId) && isValidOrganizerApplicationResubmit(request.resource.data, userId)) ||
+                       (isAdmin() && isValidOrganizerApplicationAdminUpdate(request.resource.data, userId));
+
+      allow delete: if false;
+    }
+
+    // 3. Tournaments collection: /tournaments/{tournamentId}
+    match /tournaments/{tournamentId} {
+      allow read: if resource.data.status != 'draft' ||
+        (isAuthenticated() && (resource.data.organizerUid == request.auth.uid || isAdmin()));
+
+      allow create: if isVerifiedOrganizer() &&
+        (isAdmin() || request.resource.data.organizerUid == request.auth.uid) &&
+        isValidTournamentCreate(request.resource.data);
+
+      allow update: if (
+        // Organizer owner or Admin update
+        (
+          (isAdmin() || (isVerifiedOrganizer() && resource.data.organizerUid == request.auth.uid)) &&
+          isValidTournamentOrganizerUpdate(request.resource.data)
+        ) ||
+        // Authenticated Player atomic slot increment
+        isValidPlayerTournamentSlotUpdate(tournamentId)
+      );
+
+      allow delete: if isAdmin() ||
+        (isVerifiedOrganizer() && resource.data.organizerUid == request.auth.uid && resource.data.registeredCount == 0);
+
+      // 3.1 Tournament registrations subcollection: /tournaments/{tournamentId}/registrations/{uid}
+      match /registrations/{uid} {
+        allow read: if isOwner(uid) || isAdmin() ||
+          (isAuthenticated() && exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+           get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid);
+
+        allow create: if (isOwner(uid) || isAdmin()) &&
+          isValidRegistrationCreate(request.resource.data, uid, tournamentId);
+
+        allow update: if isAdmin() &&
+          isValidRegistrationBase(request.resource.data, uid, tournamentId);
+
+        allow delete: if isAdmin();
+      }
+
+      // 3.2 Tournament matches subcollection: /tournaments/{tournamentId}/matches/{matchId}
+      match /matches/{matchId} {
+        allow read: if isAdmin() ||
+          (isAuthenticated() && request.auth.uid in resource.data.participantIds) ||
+          (
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)) && (
+              get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != 'draft' ||
+              (isAuthenticated() && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid)
+            )
+          );
+
+        allow create: if (isAdmin() || (
+          isVerifiedOrganizer() &&
+          exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid &&
+          request.resource.data.organizerUid == request.auth.uid
+        )) && isValidMatchCreate(request.resource.data, tournamentId);
+
+        allow update: if (
+          // Organizer owner or Admin update
+          (
+            (isAdmin() || (
+              isVerifiedOrganizer() &&
+              exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+              get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid &&
+              resource.data.organizerUid == request.auth.uid
+            )) &&
+            isValidMatchOrganizerUpdate(request.resource.data, tournamentId)
+          ) ||
+          // Assigned player submitting result evidence
+          (
+            isAuthenticated() &&
+            request.auth.uid in resource.data.participantIds &&
+            isValidMatchParticipantResultSubmit(request.resource.data, tournamentId)
+          ) ||
+          // Assigned player filing a dispute
+          (
+            isAuthenticated() &&
+            request.auth.uid in resource.data.participantIds &&
+            isValidMatchParticipantDispute(request.resource.data, tournamentId)
+          ) ||
+          // Assigned player check-in
+          (
+            isAuthenticated() &&
+            request.auth.uid in resource.data.participantIds &&
+            isValidMatchParticipantCheckIn(request.resource.data, tournamentId)
+          )
+        );
+
+        allow delete: if isAdmin() || (
+          isVerifiedOrganizer() &&
+          exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid &&
+          resource.data.organizerUid == request.auth.uid &&
+          resource.data.status in ['scheduled', 'cancelled']
+        );
+      }
+    }
+
+    // 4. Games catalog collection: /games/{gameId}
+    match /games/{gameId} {
+      allow read: if true;
+
+      allow create: if isAdmin() &&
+        isValidGame(request.resource.data, gameId);
+
+      allow update: if isAdmin() &&
+        isValidGame(request.resource.data, gameId) &&
+        areImmutableFieldsUnchanged(['id']) &&
+        request.resource.data.id == resource.data.id;
+
+      allow delete: if isAdmin();
+    }
+
+    // 5. Collection Group Queries: matches across all tournaments
+    match /{path=**}/matches/{matchId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && request.auth.uid in resource.data.participantIds);
+    }
+  }
+}
