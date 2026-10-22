@@ -25,6 +25,13 @@ service cloud.firestore {
     //   - gameUids: map of string to string (optional, max 30 game entries)
     //   - notificationPreferences: map of string to bool (optional, max 20 entries)
     //   - fcmToken: string (optional, 0-512 chars)
+    //   - phoneNumber: string (optional, 7-20 chars)
+    //   - countryCode: string (optional, 1-10 chars, e.g. '+91')
+    //   - phonePrivacy: string (optional, 'private' | 'friends_only' | 'public')
+    //   - inGameName: string (optional, 0-60 chars)
+    //   - friendCount: int (optional, >= 0, <= 100000)
+    //   - bio: string (optional, 0-250 chars)
+    //   - themeMode: string (optional, 'system' | 'light' | 'dark')
     //
     // Collection: /users/{userId}/policy_acceptances/{policyType}
     // Document ID: Policy type identifier (e.g. 'player_terms', 'privacy_policy', 'organizer_terms')
@@ -45,8 +52,16 @@ service cloud.firestore {
     //   - gameId: string (required, 1-50 chars)
     //   - gameName: string (required, 1-100 chars)
     //   - gameUid: string (required, 1-64 chars)
-    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled'; 'pending' or 'confirmed' on create)
+    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled' | 'rejected'; 'pending' or 'confirmed' on create)
     //   - registeredAt: timestamp (required)
+    //   - assignedSlot: int (optional, 1-1000)
+    //   - teamId: string (optional, 1-128 chars)
+    //   - teamName: string (optional, 1-100 chars)
+    //   - squadMembers: list of strings (optional, size <= 10)
+    //   - paymentStatus: string (optional, 'free' | 'paid' | 'pending')
+    //   - appliedAt: timestamp (optional)
+    //   - approvedAt: timestamp (optional)
+    //   - credentialsReleaseAt: timestamp (optional)
     //   - tournamentStartsAt: timestamp (optional)
     //   - bannerUrl: string (optional, 1-2048 chars)
     //
@@ -55,13 +70,41 @@ service cloud.firestore {
     // Fields:
     //   - title: string (required, 1-150 chars)
     //   - body: string (required, 1-1000 chars)
-    //   - type: string (required, 'registration' | 'schedule' | 'cancellation' | 'announcement' | 'match_scheduled' | 'schedule_changed' | 'match_approaching' | 'result_finalized' | 'round_advancement' | 'match_cancelled' | 'dispute_update')
+    //   - type: string (required, 'registration' | 'schedule' | 'cancellation' | 'announcement' | 'match_scheduled' | 'schedule_changed' | 'match_approaching' | 'result_finalized' | 'round_advancement' | 'match_cancelled' | 'dispute_update' | 'friend_request' | 'friend_accepted')
     //   - referenceId: string (optional, 1-128 chars)
     //   - tournamentId: string (optional, 1-128 chars)
     //   - matchId: string (optional, 1-128 chars)
     //   - isRead: bool (required, owner can only update false -> true)
     //   - createdAt: timestamp (required)
     //   - readAt: timestamp (optional)
+    //
+    // Collection: /users/{userId}/settings/{settingId}
+    // Document ID: Setting identifier (e.g. 'preferences')
+    // Fields:
+    //   - matchReminders: bool (optional)
+    //   - scheduleChanges: bool (optional)
+    //   - resultUpdates: bool (optional)
+    //   - announcements: bool (optional)
+    //   - pushEnabled: bool (optional)
+    //   - themeMode: string (optional, 'system' | 'light' | 'dark')
+    //   - phonePrivacy: string (optional, 'private' | 'friends_only' | 'public')
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: /public_profiles/{userId}
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required, immutable, matches userId and request.auth.uid)
+    //   - displayName: string (required, 2-60 chars)
+    //   - photoUrl: string (optional, 0-2048 chars)
+    //   - inGameName: string (optional, 0-60 chars)
+    //   - gameUids: map of string to string (optional, max 30 entries)
+    //   - friendCount: int (optional, >= 0, <= 100000)
+    //   - bio: string (optional, 0-250 chars)
+    //   - phonePrivacy: string (optional, 'private' | 'friends_only' | 'public')
+    //   - phoneNumber: string (optional, 0-20 chars)
+    //   - countryCode: string (optional, 0-10 chars)
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
     //
     // Collection: /organizer_applications/{userId}
     // Document ID: Firebase Auth UID of applicant (ensures 1-to-1 association and prevents duplicate submissions)
@@ -100,23 +143,37 @@ service cloud.firestore {
     //   - bannerUrl: string (optional, 1-2048 chars)
     //   - organizerUid: string (required, immutable, 1-128 chars)
     //   - organizerDisplayName: string (required, 2-100 chars)
+    //   - organizerTeamName: string (optional, 1-100 chars)
+    //   - organizerRating: float or int (optional, 0.0 to 5.0)
+    //   - organizerReviewCount: int (optional, 0 to 1000000)
+    //   - isOrganizerVerified: bool (optional)
+    //   - organizerCompletedTournaments: int (optional, 0 to 100000)
     //   - format: string (optional, 1-50 chars, e.g. 'solo' | 'duo' | 'squad')
-    //   - teamSize: int (optional, 1-10)
+    //   - mode: string (optional, 1-50 chars, e.g. 'Battle Royale' | 'TDM')
+    //   - mapName: string (optional, 1-50 chars, e.g. 'Erangel' | 'Bermuda')
+    //   - teamSize: int (optional, 1-100)
     //   - status: string (required, 'draft' | 'published' | 'upcoming' | 'registration_open' | 'registration_closed' | 'full' | 'live' | 'completed' | 'cancelled')
     //   - entryType: string (required, 'free' | 'paid')
     //   - entryFee: number (required, >= 0)
+    //   - currency: string (optional, 1-10 chars, e.g. 'INR' | 'USD')
+    //   - prizePool: string (optional, 1-100 chars)
     //   - prizeDescription: string (optional, 1-500 chars)
+    //   - prizeDistribution: map (optional, size <= 20)
+    //   - perKillReward: number (optional, >= 0)
     //   - maxParticipants: int (required, 1-1000)
     //   - minParticipants: int (optional, 0-1000)
     //   - registeredCount: int (required, >= 0, <= maxParticipants, immutable by organizer)
     //   - registrationOpensAt: timestamp (required)
     //   - registrationClosesAt: timestamp (required)
     //   - startsAt: timestamp (required)
+    //   - reportingAt: timestamp (optional)
     //   - rules: string (optional, 0-5000 chars)
     //   - eligibility: string (optional, 0-2000 chars)
     //   - matchFormat: string (optional, 0-1000 chars)
     //   - cancellationPolicy: string (optional, 0-2000 chars)
     //   - isFeatured: bool (optional)
+    //   - credentialsReleaseAt: timestamp (optional)
+    //   - credentialsReleased: bool (optional)
     //   - createdAt: timestamp (optional, immutable)
     //   - updatedAt: timestamp (optional)
     //   - publishedAt: timestamp (optional)
@@ -132,9 +189,30 @@ service cloud.firestore {
     //   - gameId: string (required, 1-50 chars)
     //   - gameName: string (required, 1-100 chars)
     //   - gameUid: string (required, 1-64 chars)
-    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled'; 'pending' or 'confirmed' on create)
+    //   - status: string (required, 'pending' | 'confirmed' | 'waitlist' | 'cancelled' | 'rejected'; 'pending' or 'confirmed' on create)
     //   - registeredAt: timestamp (required)
+    //   - assignedSlot: int (optional, 1-1000)
+    //   - teamId: string (optional, 1-128 chars)
+    //   - teamName: string (optional, 1-100 chars)
+    //   - squadMembers: list of strings (optional, size <= 10)
+    //   - paymentStatus: string (optional, 'free' | 'paid' | 'pending')
+    //   - appliedAt: timestamp (optional)
+    //   - approvedAt: timestamp (optional)
+    //   - credentialsReleaseAt: timestamp (optional)
     //   - tournamentStartsAt: timestamp (optional)
+    //   - bannerUrl: string (optional, 1-2048 chars)
+    //
+    // Collection: /tournaments/{tournamentId}/room_credentials/{docId}
+    // Document ID: Auto-generated or custom credential document ID (e.g. 'main_room')
+    // Fields:
+    //   - tournamentId: string (required, immutable, matches parent tournament, 1-128 chars)
+    //   - roomId: string (required, 1-64 chars)
+    //   - roomPassword: string (required, 1-64 chars)
+    //   - releaseAt: timestamp (optional)
+    //   - releasedAt: timestamp (optional)
+    //   - instructions: string (optional, 0-1000 chars)
+    //   - isReleased: bool (required)
+    //   - updatedAt: timestamp (optional)
     //
     // Collection: /tournaments/{tournamentId}/matches/{matchId}
     // Document ID: Auto-generated or custom match ID
@@ -183,7 +261,99 @@ service cloud.firestore {
     //   - createdAt: timestamp (optional)
     //   - updatedAt: timestamp (optional)
     //
+    // Collection: /leaderboards/{leaderboardId}
+    // Document ID: Unique leaderboard record ID (e.g. '{gameId}_{userId}' or '{userId}')
+    // Fields:
+    //   - id: string (required, matches document ID, 1-128 chars)
+    //   - userId: string (required, immutable, 1-128 chars)
+    //   - displayName: string (required, 2-60 chars)
+    //   - avatarUrl: string (optional, 0-2048 chars)
+    //   - inGameName: string (optional, 0-60 chars)
+    //   - gameId: string (required, 1-50 chars, e.g. 'all', 'freefire', 'bgmi', 'codm', 'valorant')
+    //   - score: int (required, >= 0, <= 10000000)
+    //   - rank: int (optional, >= 1, <= 1000000)
+    //   - wins: int (required, >= 0, <= 100000)
+    //   - matchesPlayed: int (required, >= 0, <= 100000)
+    //   - winRate: number (optional, >= 0.0, <= 100.0)
+    //   - updatedAt: timestamp (required)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: /friend_requests/{requestId}
+    // Document ID: Auto-generated or keyed '{senderUid}_{receiverUid}'
+    // Fields:
+    //   - id: string (required, 1-128 chars)
+    //   - senderUid: string (required, immutable, matches request.auth.uid)
+    //   - senderDisplayName: string (required, 2-60 chars)
+    //   - senderAvatarUrl: string (optional, 0-2048 chars)
+    //   - receiverUid: string (required, immutable, 1-128 chars, != senderUid)
+    //   - receiverDisplayName: string (required, 2-60 chars)
+    //   - receiverAvatarUrl: string (optional, 0-2048 chars)
+    //   - status: string (required, 'pending' | 'accepted' | 'rejected' | 'cancelled')
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: /friends/{friendshipId}
+    // Document ID: Pair-keyed or auto-generated
+    // Fields (Pair format or Direct format):
+    //   - id: string (required, 1-128 chars)
+    //   - users: list of strings (optional, size == 2)
+    //   - user1Id: string (optional, 1-128 chars)
+    //   - user2Id: string (optional, 1-128 chars)
+    //   - userId: string (optional, 1-128 chars)
+    //   - friendUid: string (optional, 1-128 chars)
+    //   - friendDisplayName: string (optional, 2-60 chars)
+    //   - friendAvatarUrl: string (optional, 0-2048 chars)
+    //   - status: string (optional, 'active' | 'unfriended' | 'blocked')
+    //   - createdAt: timestamp (required, immutable)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: /user_blocks/{blockId}
+    // Document ID: Keyed '{blockerUid}_{blockedUid}' or UUID
+    // Fields:
+    //   - id: string (required, 1-128 chars)
+    //   - blockerUid: string (required, immutable, matches request.auth.uid)
+    //   - blockedUid: string (required, immutable, 1-128 chars, != blockerUid)
+    //   - blockedDisplayName: string (optional, 2-60 chars)
+    //   - reason: string (optional, 0-500 chars)
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: /user_reports/{reportId}
+    // Document ID: Auto-generated or custom report ID
+    // Fields:
+    //   - id: string (required, 1-128 chars)
+    //   - reporterUid: string (required, immutable, matches request.auth.uid)
+    //   - reportedUid: string (required, immutable, 1-128 chars, != reporterUid)
+    //   - reportedDisplayName: string (optional, 2-60 chars)
+    //   - category: string (required, 2-50 chars, e.g. 'cheating', 'harassment', 'abusive_chat', 'fake_results', 'inappropriate_name', 'other')
+    //   - reason: string (required, 2-500 chars)
+    //   - details: string (optional, 0-2000 chars)
+    //   - evidenceUrls: list of strings (optional, size <= 5)
+    //   - status: string (required, 'pending' | 'investigating' | 'resolved' | 'dismissed')
+    //   - createdAt: timestamp (required, immutable)
+    //   - reviewedAt: timestamp (optional, admin only)
+    //   - reviewedBy: string (optional, admin only)
+    //   - adminNotes: string (optional, 0-1000 chars, admin only)
+    //
+    // Collection: /audit_logs/{logId}
+    // Document ID: Auto-generated or custom audit log ID
+    // Fields:
+    //   - id: string (required, 1-128 chars)
+    //   - eventType: string (required, 1-64 chars)
+    //   - accountIdentifier: string (optional, 1-254 chars)
+    //   - timestamp: timestamp (required)
+    //   - performedBy: string (optional, 1-128 chars)
+    //   - metadata: map (optional, size <= 20 entries)
+    //
+    // Collection: /rate_limits/{bucketId}
+    // Document ID: SHA-256 or prefix-keyed bucket identifier
+    // Fields:
+    //   - bucketKey: string (required, 1-256 chars)
+    //   - attempts: int (required, 0-1000)
+    //   - lastAttemptAt: timestamp (required)
+    //   - windowExpiresAt: timestamp (optional)
+    //
     // ===============================================================
+
 
     // ===============================================================
     // Global Helper Functions
@@ -254,7 +424,9 @@ service cloud.firestore {
         'uid', 'displayName', 'email', 'role', 'accountStatus',
         'termsVersionAccepted', 'privacyVersionAccepted',
         'createdAt', 'updatedAt', 'policyAcceptedAt', 'emailVerified',
-        'photoUrl', 'gameUids', 'notificationPreferences', 'fcmToken'
+        'photoUrl', 'gameUids', 'notificationPreferences', 'fcmToken',
+        'phoneNumber', 'countryCode', 'phonePrivacy', 'inGameName',
+        'friendCount', 'bio', 'themeMode'
       ];
       let requiredKeys = [
         'uid', 'displayName', 'email', 'role', 'accountStatus',
@@ -277,7 +449,14 @@ service cloud.firestore {
         (!('photoUrl' in data) || data.photoUrl == null || validString(data.photoUrl, 0, 2048)) &&
         (!('gameUids' in data) || data.gameUids == null || (data.gameUids is map && data.gameUids.size() <= 30)) &&
         (!('notificationPreferences' in data) || data.notificationPreferences == null || (data.notificationPreferences is map && data.notificationPreferences.size() <= 20)) &&
-        (!('fcmToken' in data) || data.fcmToken == null || validString(data.fcmToken, 0, 512));
+        (!('fcmToken' in data) || data.fcmToken == null || validString(data.fcmToken, 0, 512)) &&
+        (!('phoneNumber' in data) || data.phoneNumber == null || validString(data.phoneNumber, 7, 20)) &&
+        (!('countryCode' in data) || data.countryCode == null || validString(data.countryCode, 1, 10)) &&
+        (!('phonePrivacy' in data) || data.phonePrivacy == null || data.phonePrivacy in ['private', 'friends_only', 'public']) &&
+        (!('inGameName' in data) || data.inGameName == null || validString(data.inGameName, 0, 60)) &&
+        (!('friendCount' in data) || data.friendCount == null || (data.friendCount is int && data.friendCount >= 0 && data.friendCount <= 100000)) &&
+        (!('bio' in data) || data.bio == null || validString(data.bio, 0, 250)) &&
+        (!('themeMode' in data) || data.themeMode == null || data.themeMode in ['system', 'light', 'dark']);
     }
 
     function isValidUserCreate(data, userId) {
@@ -291,8 +470,16 @@ service cloud.firestore {
       let affected = diff.affectedKeys();
 
       return isValidUserBase(data, userId) &&
-        affected.hasOnly(['displayName', 'photoUrl', 'gameUids', 'notificationPreferences', 'fcmToken', 'updatedAt']) &&
-        areImmutableFieldsUnchanged(['uid', 'email', 'role', 'accountStatus', 'createdAt', 'termsVersionAccepted', 'privacyVersionAccepted', 'policyAcceptedAt', 'emailVerified']) &&
+        affected.hasOnly([
+          'displayName', 'photoUrl', 'gameUids', 'notificationPreferences',
+          'fcmToken', 'phoneNumber', 'countryCode', 'phonePrivacy',
+          'inGameName', 'friendCount', 'bio', 'themeMode', 'updatedAt'
+        ]) &&
+        areImmutableFieldsUnchanged([
+          'uid', 'email', 'role', 'accountStatus', 'createdAt',
+          'termsVersionAccepted', 'privacyVersionAccepted', 'policyAcceptedAt',
+          'emailVerified'
+        ]) &&
         data.uid == resource.data.uid &&
         data.email == resource.data.email &&
         data.role == resource.data.role &&
@@ -303,6 +490,34 @@ service cloud.firestore {
       return isValidUserBase(data, userId) &&
         areImmutableFieldsUnchanged(['uid', 'createdAt']) &&
         data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Public Profiles Domain Validators (/public_profiles/{userId})
+    // ===============================================================
+
+    function isValidPublicProfile(data, userId) {
+      let allowedKeys = [
+        'uid', 'displayName', 'photoUrl', 'inGameName', 'gameUids',
+        'friendCount', 'bio', 'phonePrivacy', 'phoneNumber', 'countryCode',
+        'createdAt', 'updatedAt'
+      ];
+      let requiredKeys = ['uid', 'displayName'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.uid == userId &&
+        validString(data.displayName, 2, 60) &&
+        (!('photoUrl' in data) || data.photoUrl == null || validString(data.photoUrl, 0, 2048)) &&
+        (!('inGameName' in data) || data.inGameName == null || validString(data.inGameName, 0, 60)) &&
+        (!('gameUids' in data) || data.gameUids == null || (data.gameUids is map && data.gameUids.size() <= 30)) &&
+        (!('friendCount' in data) || data.friendCount == null || (data.friendCount is int && data.friendCount >= 0 && data.friendCount <= 100000)) &&
+        (!('bio' in data) || data.bio == null || validString(data.bio, 0, 250)) &&
+        (!('phonePrivacy' in data) || data.phonePrivacy == null || data.phonePrivacy in ['private', 'friends_only', 'public']) &&
+        (!('phoneNumber' in data) || data.phoneNumber == null || validString(data.phoneNumber, 0, 20)) &&
+        (!('countryCode' in data) || data.countryCode == null || validString(data.countryCode, 0, 10)) &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
     }
 
     // ===============================================================
@@ -333,7 +548,9 @@ service cloud.firestore {
     function isValidRegistrationBase(data, uid, tournamentId) {
       let allowedKeys = [
         'tournamentId', 'uid', 'tournamentTitle', 'gameId', 'gameName',
-        'gameUid', 'status', 'registeredAt', 'tournamentStartsAt', 'bannerUrl'
+        'gameUid', 'status', 'registeredAt', 'tournamentStartsAt', 'bannerUrl',
+        'assignedSlot', 'teamId', 'teamName', 'squadMembers', 'paymentStatus',
+        'appliedAt', 'approvedAt', 'credentialsReleaseAt'
       ];
       let requiredKeys = [
         'tournamentId', 'uid', 'tournamentTitle', 'gameId', 'gameName',
@@ -348,8 +565,16 @@ service cloud.firestore {
         validString(data.gameId, 1, 50) &&
         validString(data.gameName, 1, 100) &&
         validString(data.gameUid, 1, 64) &&
-        data.status in ['pending', 'confirmed', 'waitlist', 'cancelled'] &&
+        data.status in ['pending', 'confirmed', 'waitlist', 'cancelled', 'rejected'] &&
         data.registeredAt is timestamp &&
+        (!('assignedSlot' in data) || data.assignedSlot == null || (data.assignedSlot is int && data.assignedSlot >= 1 && data.assignedSlot <= 1000)) &&
+        (!('teamId' in data) || data.teamId == null || validString(data.teamId, 1, 128)) &&
+        (!('teamName' in data) || data.teamName == null || validString(data.teamName, 1, 100)) &&
+        (!('squadMembers' in data) || data.squadMembers == null || (data.squadMembers is list && data.squadMembers.size() <= 10)) &&
+        (!('paymentStatus' in data) || data.paymentStatus == null || data.paymentStatus in ['free', 'paid', 'pending']) &&
+        (!('appliedAt' in data) || data.appliedAt == null || data.appliedAt is timestamp) &&
+        (!('approvedAt' in data) || data.approvedAt == null || data.approvedAt is timestamp) &&
+        (!('credentialsReleaseAt' in data) || data.credentialsReleaseAt == null || data.credentialsReleaseAt is timestamp) &&
         (!('tournamentStartsAt' in data) || data.tournamentStartsAt == null || data.tournamentStartsAt is timestamp) &&
         (!('bannerUrl' in data) || data.bannerUrl == null || validString(data.bannerUrl, 1, 2048));
     }
@@ -377,7 +602,8 @@ service cloud.firestore {
         data.type in [
           'registration', 'schedule', 'cancellation', 'announcement',
           'match_scheduled', 'schedule_changed', 'match_approaching',
-          'result_finalized', 'round_advancement', 'match_cancelled', 'dispute_update'
+          'result_finalized', 'round_advancement', 'match_cancelled', 'dispute_update',
+          'friend_request', 'friend_accepted'
         ] &&
         (!('referenceId' in data) || data.referenceId == null || validString(data.referenceId, 1, 128)) &&
         (!('tournamentId' in data) || data.tournamentId == null || validString(data.tournamentId, 1, 128)) &&
@@ -502,13 +728,16 @@ service cloud.firestore {
     function isValidTournamentBase(data) {
       let allowedKeys = [
         'title', 'description', 'gameId', 'gameName', 'bannerUrl',
-        'organizerUid', 'organizerDisplayName', 'format', 'teamSize',
-        'status', 'entryType', 'entryFee', 'prizeDescription',
+        'organizerUid', 'organizerDisplayName', 'organizerTeamName',
+        'organizerRating', 'organizerReviewCount', 'isOrganizerVerified',
+        'organizerCompletedTournaments', 'format', 'teamSize', 'mode', 'mapName',
+        'status', 'entryType', 'entryFee', 'currency', 'prizePool',
+        'prizeDescription', 'prizeDistribution', 'perKillReward',
         'maxParticipants', 'minParticipants', 'registeredCount',
         'registrationOpensAt', 'registrationClosesAt', 'startsAt',
-        'rules', 'eligibility', 'matchFormat', 'cancellationPolicy',
-        'isFeatured', 'createdAt', 'updatedAt', 'publishedAt',
-        'cancelledAt', 'cancellationReason'
+        'reportingAt', 'rules', 'eligibility', 'matchFormat', 'cancellationPolicy',
+        'isFeatured', 'credentialsReleaseAt', 'credentialsReleased',
+        'createdAt', 'updatedAt', 'publishedAt', 'cancelledAt', 'cancellationReason'
       ];
       let requiredKeys = [
         'title', 'description', 'gameId', 'gameName',
@@ -526,23 +755,37 @@ service cloud.firestore {
         (!('bannerUrl' in data) || data.bannerUrl == null || validString(data.bannerUrl, 1, 2048)) &&
         validString(data.organizerUid, 1, 128) &&
         validString(data.organizerDisplayName, 2, 100) &&
+        (!('organizerTeamName' in data) || data.organizerTeamName == null || validString(data.organizerTeamName, 1, 100)) &&
+        (!('organizerRating' in data) || data.organizerRating == null || ((data.organizerRating is float || data.organizerRating is int) && data.organizerRating >= 0.0 && data.organizerRating <= 5.0)) &&
+        (!('organizerReviewCount' in data) || data.organizerReviewCount == null || (data.organizerReviewCount is int && data.organizerReviewCount >= 0 && data.organizerReviewCount <= 1000000)) &&
+        (!('isOrganizerVerified' in data) || data.isOrganizerVerified is bool) &&
+        (!('organizerCompletedTournaments' in data) || data.organizerCompletedTournaments == null || (data.organizerCompletedTournaments is int && data.organizerCompletedTournaments >= 0 && data.organizerCompletedTournaments <= 100000)) &&
         (!('format' in data) || data.format == null || validString(data.format, 1, 50)) &&
-        (!('teamSize' in data) || data.teamSize == null || (data.teamSize is int && data.teamSize >= 1 && data.teamSize <= 10)) &&
+        (!('mode' in data) || data.mode == null || validString(data.mode, 1, 50)) &&
+        (!('mapName' in data) || data.mapName == null || validString(data.mapName, 1, 50)) &&
+        (!('teamSize' in data) || data.teamSize == null || (data.teamSize is int && data.teamSize >= 1 && data.teamSize <= 100)) &&
         data.status in ['draft', 'upcoming', 'published', 'registration_open', 'registration_closed', 'full', 'live', 'completed', 'cancelled'] &&
         data.entryType in ['free', 'paid'] &&
         (data.entryFee is int || data.entryFee is float) && data.entryFee >= 0 &&
+        (!('currency' in data) || data.currency == null || validString(data.currency, 1, 10)) &&
+        (!('prizePool' in data) || data.prizePool == null || validString(data.prizePool, 1, 100)) &&
         (!('prizeDescription' in data) || data.prizeDescription == null || validString(data.prizeDescription, 1, 500)) &&
+        (!('prizeDistribution' in data) || data.prizeDistribution == null || (data.prizeDistribution is map && data.prizeDistribution.size() <= 20)) &&
+        (!('perKillReward' in data) || data.perKillReward == null || ((data.perKillReward is float || data.perKillReward is int) && data.perKillReward >= 0)) &&
         data.maxParticipants is int && data.maxParticipants > 0 && data.maxParticipants <= 1000 &&
         (!('minParticipants' in data) || data.minParticipants == null || (data.minParticipants is int && data.minParticipants >= 0 && data.minParticipants <= data.maxParticipants)) &&
         data.registeredCount is int && data.registeredCount >= 0 &&
         data.registrationOpensAt is timestamp &&
         data.registrationClosesAt is timestamp &&
         data.startsAt is timestamp &&
+        (!('reportingAt' in data) || data.reportingAt == null || data.reportingAt is timestamp) &&
         (!('rules' in data) || data.rules == null || validString(data.rules, 0, 5000)) &&
         (!('eligibility' in data) || data.eligibility == null || validString(data.eligibility, 0, 2000)) &&
         (!('matchFormat' in data) || data.matchFormat == null || validString(data.matchFormat, 0, 1000)) &&
         (!('cancellationPolicy' in data) || data.cancellationPolicy == null || validString(data.cancellationPolicy, 0, 2000)) &&
         (!('isFeatured' in data) || data.isFeatured is bool) &&
+        (!('credentialsReleaseAt' in data) || data.credentialsReleaseAt == null || data.credentialsReleaseAt is timestamp) &&
+        (!('credentialsReleased' in data) || data.credentialsReleased is bool) &&
         (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp) &&
         (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp) &&
         (!('publishedAt' in data) || data.publishedAt == null || data.publishedAt is timestamp) &&
@@ -610,6 +853,29 @@ service cloud.firestore {
           'matchFormat', 'cancellationPolicy', 'isFeatured', 'createdAt'
         ]) &&
         getAfter(/databases/$(database)/documents/tournaments/$(tournamentId)/registrations/$(request.auth.uid)) != null;
+    }
+
+    // ===============================================================
+    // Room Credentials Domain Validators (/tournaments/{tournamentId}/room_credentials/{docId})
+    // ===============================================================
+
+    function isValidRoomCredentials(data, tournamentId) {
+      let allowedKeys = [
+        'tournamentId', 'roomId', 'roomPassword', 'releaseAt',
+        'releasedAt', 'instructions', 'isReleased', 'updatedAt'
+      ];
+      let requiredKeys = ['tournamentId', 'roomId', 'roomPassword', 'isReleased'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.tournamentId == tournamentId &&
+        validString(data.roomId, 1, 64) &&
+        validString(data.roomPassword, 1, 64) &&
+        data.isReleased is bool &&
+        (!('releaseAt' in data) || data.releaseAt == null || data.releaseAt is timestamp) &&
+        (!('releasedAt' in data) || data.releasedAt == null || data.releasedAt is timestamp) &&
+        (!('instructions' in data) || data.instructions == null || validString(data.instructions, 0, 1000)) &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
     }
 
     // ===============================================================
@@ -779,6 +1045,260 @@ service cloud.firestore {
     }
 
     // ===============================================================
+    // Leaderboard Domain Validators (/leaderboards/{leaderboardId})
+    // ===============================================================
+
+    function isValidLeaderboardEntry(data) {
+      let allowedKeys = [
+        'id', 'userId', 'displayName', 'avatarUrl', 'inGameName',
+        'gameId', 'score', 'rank', 'wins', 'matchesPlayed', 'winRate',
+        'updatedAt', 'createdAt'
+      ];
+      let requiredKeys = [
+        'id', 'userId', 'displayName', 'gameId', 'score', 'wins', 'matchesPlayed', 'updatedAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.id, 1, 128) &&
+        validString(data.userId, 1, 128) &&
+        validString(data.displayName, 2, 60) &&
+        validString(data.gameId, 1, 50) &&
+        data.score is int && data.score >= 0 && data.score <= 10000000 &&
+        data.wins is int && data.wins >= 0 && data.wins <= 100000 &&
+        data.matchesPlayed is int && data.matchesPlayed >= 0 && data.matchesPlayed <= 100000 &&
+        data.matchesPlayed >= data.wins &&
+        (!('rank' in data) || data.rank == null || (data.rank is int && data.rank >= 1 && data.rank <= 1000000)) &&
+        (!('avatarUrl' in data) || data.avatarUrl == null || validString(data.avatarUrl, 0, 2048)) &&
+        (!('inGameName' in data) || data.inGameName == null || validString(data.inGameName, 0, 60)) &&
+        (!('winRate' in data) || data.winRate == null || ((data.winRate is float || data.winRate is int) && data.winRate >= 0.0 && data.winRate <= 100.0)) &&
+        data.updatedAt is timestamp &&
+        (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp);
+    }
+
+    // ===============================================================
+    // Friend Request Domain Validators (/friend_requests/{requestId})
+    // ===============================================================
+
+    function isValidFriendRequestBase(data) {
+      let allowedKeys = [
+        'id', 'senderUid', 'senderDisplayName', 'senderAvatarUrl',
+        'receiverUid', 'receiverDisplayName', 'receiverAvatarUrl',
+        'status', 'createdAt', 'updatedAt'
+      ];
+      let requiredKeys = [
+        'id', 'senderUid', 'senderDisplayName', 'receiverUid',
+        'receiverDisplayName', 'status', 'createdAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.id, 1, 128) &&
+        validString(data.senderUid, 1, 128) &&
+        validString(data.receiverUid, 1, 128) &&
+        data.senderUid != data.receiverUid &&
+        validString(data.senderDisplayName, 2, 60) &&
+        validString(data.receiverDisplayName, 2, 60) &&
+        data.status in ['pending', 'accepted', 'rejected', 'cancelled'] &&
+        (!('senderAvatarUrl' in data) || data.senderAvatarUrl == null || validString(data.senderAvatarUrl, 0, 2048)) &&
+        (!('receiverAvatarUrl' in data) || data.receiverAvatarUrl == null || validString(data.receiverAvatarUrl, 0, 2048)) &&
+        data.createdAt is timestamp &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    function isValidFriendRequestCreate(data) {
+      return isValidFriendRequestBase(data) &&
+        data.senderUid == request.auth.uid &&
+        data.status == 'pending';
+    }
+
+    function isValidFriendRequestUpdate(data) {
+      return isValidFriendRequestBase(data) &&
+        areImmutableFieldsUnchanged(['id', 'senderUid', 'receiverUid', 'createdAt']) &&
+        data.senderUid == resource.data.senderUid &&
+        data.receiverUid == resource.data.receiverUid &&
+        (
+          isAdmin() ||
+          // Sender can only cancel their own pending request
+          (
+            request.auth.uid == resource.data.senderUid &&
+            resource.data.status == 'pending' &&
+            data.status == 'cancelled'
+          ) ||
+          // Receiver can accept or reject a pending request
+          (
+            request.auth.uid == resource.data.receiverUid &&
+            resource.data.status == 'pending' &&
+            data.status in ['accepted', 'rejected']
+          )
+        );
+    }
+
+    // ===============================================================
+    // Friends Domain Validators (/friends/{friendshipId})
+    // ===============================================================
+
+    function isValidFriendBase(data) {
+      let allowedKeys = [
+        'id', 'users', 'user1Id', 'user2Id', 'user1DisplayName', 'user2DisplayName',
+        'user1AvatarUrl', 'user2AvatarUrl', 'userId', 'friendUid', 'friendDisplayName',
+        'friendAvatarUrl', 'friendInGameName', 'status', 'createdAt', 'updatedAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        validString(data.id, 1, 128) &&
+        data.createdAt is timestamp &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp) &&
+        (!('status' in data) || data.status == null || data.status in ['active', 'unfriended', 'blocked']) &&
+        (
+          // Option 1: Pair friendship record
+          (
+            data.keys().hasAll(['users', 'user1Id', 'user2Id', 'user1DisplayName', 'user2DisplayName', 'createdAt']) &&
+            data.users is list && data.users.size() == 2 &&
+            validString(data.user1Id, 1, 128) &&
+            validString(data.user2Id, 1, 128) &&
+            data.user1Id != data.user2Id &&
+            data.users.hasAll([data.user1Id, data.user2Id]) &&
+            validString(data.user1DisplayName, 2, 60) &&
+            validString(data.user2DisplayName, 2, 60) &&
+            (!('user1AvatarUrl' in data) || data.user1AvatarUrl == null || validString(data.user1AvatarUrl, 0, 2048)) &&
+            (!('user2AvatarUrl' in data) || data.user2AvatarUrl == null || validString(data.user2AvatarUrl, 0, 2048))
+          ) ||
+          // Option 2: Direct user-scoped friend record
+          (
+            data.keys().hasAll(['userId', 'friendUid', 'friendDisplayName', 'createdAt']) &&
+            validString(data.userId, 1, 128) &&
+            validString(data.friendUid, 1, 128) &&
+            data.userId != data.friendUid &&
+            validString(data.friendDisplayName, 2, 60) &&
+            (!('friendAvatarUrl' in data) || data.friendAvatarUrl == null || validString(data.friendAvatarUrl, 0, 2048)) &&
+            (!('friendInGameName' in data) || data.friendInGameName == null || validString(data.friendInGameName, 0, 60))
+          )
+        );
+    }
+
+    function isValidUserFriend(data, friendUid) {
+      let allowedKeys = [
+        'friendUid', 'displayName', 'avatarUrl', 'inGameName',
+        'friendshipId', 'status', 'createdAt', 'updatedAt'
+      ];
+      let requiredKeys = ['friendUid', 'displayName', 'createdAt'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        data.friendUid == friendUid &&
+        validString(data.friendUid, 1, 128) &&
+        validString(data.displayName, 2, 60) &&
+        (!('avatarUrl' in data) || data.avatarUrl == null || validString(data.avatarUrl, 0, 2048)) &&
+        (!('inGameName' in data) || data.inGameName == null || validString(data.inGameName, 0, 60)) &&
+        (!('friendshipId' in data) || data.friendshipId == null || validString(data.friendshipId, 1, 128)) &&
+        (!('status' in data) || data.status == null || data.status in ['active', 'unfriended', 'blocked']) &&
+        data.createdAt is timestamp &&
+        (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // User Block Domain Validators (/user_blocks/{blockId})
+    // ===============================================================
+
+    function isValidUserBlock(data) {
+      let allowedKeys = ['id', 'blockerUid', 'blockedUid', 'blockedDisplayName', 'reason', 'createdAt'];
+      let requiredKeys = ['id', 'blockerUid', 'blockedUid', 'createdAt'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.id, 1, 128) &&
+        data.blockerUid == request.auth.uid &&
+        validString(data.blockedUid, 1, 128) &&
+        data.blockerUid != data.blockedUid &&
+        data.createdAt is timestamp &&
+        (!('blockedDisplayName' in data) || data.blockedDisplayName == null || validString(data.blockedDisplayName, 2, 60)) &&
+        (!('reason' in data) || data.reason == null || validString(data.reason, 0, 500));
+    }
+
+    // ===============================================================
+    // User Report Domain Validators (/user_reports/{reportId})
+    // ===============================================================
+
+    function isValidUserReportBase(data) {
+      let allowedKeys = [
+        'id', 'reporterUid', 'reportedUid', 'reportedDisplayName',
+        'category', 'reason', 'details', 'evidenceUrls', 'status',
+        'createdAt', 'reviewedAt', 'reviewedBy', 'adminNotes'
+      ];
+      let requiredKeys = [
+        'id', 'reporterUid', 'reportedUid', 'category', 'reason', 'status', 'createdAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.id, 1, 128) &&
+        validString(data.reporterUid, 1, 128) &&
+        validString(data.reportedUid, 1, 128) &&
+        data.reporterUid != data.reportedUid &&
+        validString(data.category, 2, 50) &&
+        validString(data.reason, 2, 500) &&
+        data.status in ['pending', 'investigating', 'resolved', 'dismissed'] &&
+        data.createdAt is timestamp &&
+        (!('reportedDisplayName' in data) || data.reportedDisplayName == null || validString(data.reportedDisplayName, 2, 60)) &&
+        (!('details' in data) || data.details == null || validString(data.details, 0, 2000)) &&
+        (!('evidenceUrls' in data) || data.evidenceUrls == null || (data.evidenceUrls is list && data.evidenceUrls.size() <= 5)) &&
+        (!('reviewedAt' in data) || data.reviewedAt == null || data.reviewedAt is timestamp) &&
+        (!('reviewedBy' in data) || data.reviewedBy == null || validString(data.reviewedBy, 1, 128)) &&
+        (!('adminNotes' in data) || data.adminNotes == null || validString(data.adminNotes, 0, 1000));
+    }
+
+    function isValidUserReportCreate(data) {
+      return isValidUserReportBase(data) &&
+        data.reporterUid == request.auth.uid &&
+        data.status == 'pending' &&
+        (!('reviewedAt' in data) || data.reviewedAt == null) &&
+        (!('reviewedBy' in data) || data.reviewedBy == null) &&
+        (!('adminNotes' in data) || data.adminNotes == null);
+    }
+
+    function isValidUserReportAdminUpdate(data) {
+      return isValidUserReportBase(data) &&
+        areImmutableFieldsUnchanged(['id', 'reporterUid', 'reportedUid', 'category', 'reason', 'createdAt']) &&
+        data.reporterUid == resource.data.reporterUid &&
+        data.reportedUid == resource.data.reportedUid;
+    }
+
+    // ===============================================================
+    // Audit Log Domain Validators (/audit_logs/{logId})
+    // ===============================================================
+
+    function isValidAuditLog(data) {
+      let allowedKeys = ['id', 'eventType', 'accountIdentifier', 'timestamp', 'performedBy', 'metadata'];
+      let requiredKeys = ['id', 'eventType', 'timestamp'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.id, 1, 128) &&
+        validString(data.eventType, 1, 64) &&
+        data.timestamp is timestamp &&
+        (!('accountIdentifier' in data) || data.accountIdentifier == null || validString(data.accountIdentifier, 1, 254)) &&
+        (!('performedBy' in data) || data.performedBy == null || validString(data.performedBy, 1, 128)) &&
+        (!('metadata' in data) || data.metadata == null || (data.metadata is map && data.metadata.size() <= 20));
+    }
+
+    // ===============================================================
+    // Rate Limit Domain Validators (/rate_limits/{bucketId})
+    // ===============================================================
+
+    function isValidRateLimit(data) {
+      let allowedKeys = ['bucketKey', 'attempts', 'lastAttemptAt', 'windowExpiresAt'];
+      let requiredKeys = ['bucketKey', 'attempts', 'lastAttemptAt'];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        validString(data.bucketKey, 1, 256) &&
+        data.attempts is int && data.attempts >= 0 && data.attempts <= 1000 &&
+        data.lastAttemptAt is timestamp &&
+        (!('windowExpiresAt' in data) || data.windowExpiresAt == null || data.windowExpiresAt is timestamp);
+    }
+
+    // ===============================================================
     // Collection Rules
     // ===============================================================
 
@@ -846,19 +1366,47 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isAdmin();
 
         allow create, update: if isOwner(userId) &&
-          request.resource.data.keys().hasOnly(['matchReminders', 'scheduleChanges', 'resultUpdates', 'announcements', 'pushEnabled', 'updatedAt']) &&
+          request.resource.data.keys().hasOnly(['matchReminders', 'scheduleChanges', 'resultUpdates', 'announcements', 'pushEnabled', 'themeMode', 'phonePrivacy', 'updatedAt']) &&
           (!('matchReminders' in request.resource.data) || request.resource.data.matchReminders is bool) &&
           (!('scheduleChanges' in request.resource.data) || request.resource.data.scheduleChanges is bool) &&
           (!('resultUpdates' in request.resource.data) || request.resource.data.resultUpdates is bool) &&
           (!('announcements' in request.resource.data) || request.resource.data.announcements is bool) &&
           (!('pushEnabled' in request.resource.data) || request.resource.data.pushEnabled is bool) &&
+          (!('themeMode' in request.resource.data) || request.resource.data.themeMode in ['system', 'light', 'dark']) &&
+          (!('phonePrivacy' in request.resource.data) || request.resource.data.phonePrivacy in ['private', 'friends_only', 'public']) &&
           (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // 1.5 User friends subcollection: /users/{userId}/friends/{friendUid}
+      match /friends/{friendUid} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create, update: if (isOwner(userId) || isAdmin()) &&
+          isValidUserFriend(request.resource.data, friendUid);
 
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
 
-    // 2. Organizer applications collection: /organizer_applications/{userId}
+    // 2. Public player profiles: /public_profiles/{userId}
+    // Enables player discovery, search, friend views, and leaderboard profiles without exposing PII (emails/private settings)
+    match /public_profiles/{userId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isOwner(userId) &&
+        isValidPublicProfile(request.resource.data, userId);
+
+      allow update: if (isOwner(userId) || isAdmin()) &&
+        isValidPublicProfile(request.resource.data, userId) &&
+        areImmutableFieldsUnchanged(['uid', 'createdAt']) &&
+        request.resource.data.uid == resource.data.uid;
+
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // 3. Organizer applications collection: /organizer_applications/{userId}
     match /organizer_applications/{userId} {
       allow read: if isOwner(userId) || isAdmin();
 
@@ -871,10 +1419,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // 3. Tournaments collection: /tournaments/{tournamentId}
+    // 4. Tournaments collection: /tournaments/{tournamentId}
     match /tournaments/{tournamentId} {
-      allow read: if resource.data.status != 'draft' ||
-        (isAuthenticated() && (resource.data.organizerUid == request.auth.uid || isAdmin()));
+      allow read: if isAuthenticated() || resource.data.status != 'draft';
 
       allow create: if isVerifiedOrganizer() &&
         (isAdmin() || request.resource.data.organizerUid == request.auth.uid) &&
@@ -893,7 +1440,7 @@ service cloud.firestore {
       allow delete: if isAdmin() ||
         (isVerifiedOrganizer() && resource.data.organizerUid == request.auth.uid && resource.data.registeredCount == 0);
 
-      // 3.1 Tournament registrations subcollection: /tournaments/{tournamentId}/registrations/{uid}
+      // 4.1 Tournament registrations subcollection: /tournaments/{tournamentId}/registrations/{uid}
       match /registrations/{uid} {
         allow read: if isOwner(uid) || isAdmin() ||
           (isAuthenticated() && exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
@@ -908,7 +1455,7 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
-      // 3.2 Tournament matches subcollection: /tournaments/{tournamentId}/matches/{matchId}
+      // 4.2 Tournament matches subcollection: /tournaments/{tournamentId}/matches/{matchId}
       match /matches/{matchId} {
         allow read: if isAdmin() ||
           (isAuthenticated() && request.auth.uid in resource.data.participantIds) ||
@@ -965,9 +1512,62 @@ service cloud.firestore {
           resource.data.status in ['scheduled', 'cancelled']
         );
       }
+
+      // 4.3 Tournament room credentials subcollection: /tournaments/{tournamentId}/room_credentials/{docId}
+      // Strictly protects sensitive Room ID & Password.
+      // Room credentials are NEVER readable by unapproved players or public queries.
+      // Read access is ONLY granted if:
+      //   1. Requesting user is the tournament organizer, OR
+      //   2. Admin, OR
+      //   3. An authenticated registered player whose registration exists in /tournaments/{tournamentId}/registrations/{uid}
+      //      AND the tournament credentials have been released (credentialsReleased == true or request.time >= credentialsReleaseAt).
+      match /room_credentials/{docId} {
+        allow read: if isAdmin() ||
+          (
+            isAuthenticated() &&
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+            get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid
+          ) ||
+          (
+            isAuthenticated() &&
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)/registrations/$(request.auth.uid)) &&
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+            (
+              get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('credentialsReleased', false) == true ||
+              (
+                get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('credentialsReleaseAt', null) != null &&
+                request.time >= get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.credentialsReleaseAt
+              )
+            )
+          );
+
+        allow create: if (
+          isAdmin() || (
+            isVerifiedOrganizer() &&
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+            get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid
+          )
+        ) && isValidRoomCredentials(request.resource.data, tournamentId);
+
+        allow update: if (
+          isAdmin() || (
+            isVerifiedOrganizer() &&
+            exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+            get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid
+          )
+        ) && isValidRoomCredentials(request.resource.data, tournamentId) &&
+          areImmutableFieldsUnchanged(['tournamentId']) &&
+          request.resource.data.tournamentId == resource.data.tournamentId;
+
+        allow delete: if isAdmin() || (
+          isVerifiedOrganizer() &&
+          exists(/databases/$(database)/documents/tournaments/$(tournamentId)) &&
+          get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerUid == request.auth.uid
+        );
+      }
     }
 
-    // 4. Games catalog collection: /games/{gameId}
+    // 5. Games catalog collection: /games/{gameId}
     match /games/{gameId} {
       allow read: if true;
 
@@ -982,10 +1582,108 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 5. Collection Group Queries: matches across all tournaments
+    // 6. Global & Game-Specific Leaderboards: /leaderboards/{leaderboardId}
+    // Authenticated read access for rankings; strictly backend/admin-managed to prevent score fabrication
+    match /leaderboards/{leaderboardId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidLeaderboardEntry(request.resource.data);
+      allow update: if isAdmin() && isValidLeaderboardEntry(request.resource.data) &&
+        areImmutableFieldsUnchanged(['id', 'userId', 'gameId']) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.gameId == resource.data.gameId;
+      allow delete: if isAdmin();
+    }
+
+    // 7. Friend Requests: /friend_requests/{requestId}
+    // Peer-to-peer friend requests with verified sender and lifecycle transitions
+    match /friend_requests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.senderUid == request.auth.uid ||
+        resource.data.receiverUid == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isAuthenticated() &&
+        isValidFriendRequestCreate(request.resource.data);
+
+      allow update: if isAuthenticated() &&
+        isValidFriendRequestUpdate(request.resource.data);
+
+      allow delete: if isAuthenticated() && (
+        resource.data.senderUid == request.auth.uid ||
+        resource.data.receiverUid == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // 8. Friends Collection: /friends/{friendshipId}
+    // Active connections accessible only to the participating friends or admins
+    match /friends/{friendshipId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        ('users' in resource.data && request.auth.uid in resource.data.users) ||
+        ('userId' in resource.data && (resource.data.userId == request.auth.uid || resource.data.friendUid == request.auth.uid))
+      );
+
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        ('users' in request.resource.data && request.auth.uid in request.resource.data.users) ||
+        ('userId' in request.resource.data && request.resource.data.userId == request.auth.uid)
+      ) && isValidFriendBase(request.resource.data);
+
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        ('users' in resource.data && request.auth.uid in resource.data.users) ||
+        ('userId' in resource.data && resource.data.userId == request.auth.uid)
+      ) && isValidFriendBase(request.resource.data) && areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        ('users' in resource.data && request.auth.uid in resource.data.users) ||
+        ('userId' in resource.data && resource.data.userId == request.auth.uid)
+      );
+    }
+
+    // 9. User Blocks: /user_blocks/{blockId}
+    // Player blocking records to prevent harassment and unwanted interactions
+    match /user_blocks/{blockId} {
+      allow read: if isAuthenticated() && (resource.data.blockerUid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidUserBlock(request.resource.data);
+      allow update: if false; // Immutable block record
+      allow delete: if isAuthenticated() && (resource.data.blockerUid == request.auth.uid || isAdmin());
+    }
+
+    // 10. User Reports: /user_reports/{reportId}
+    // Player reporting workflow. Reported user CANNOT read the report to prevent retaliation
+    match /user_reports/{reportId} {
+      allow read: if isAuthenticated() && (resource.data.reporterUid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidUserReportCreate(request.resource.data);
+      allow update: if isAdmin() && isValidUserReportAdminUpdate(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 11. Collection Group Queries: matches across all tournaments
     match /{path=**}/matches/{matchId} {
       allow read: if isAdmin() ||
         (isAuthenticated() && request.auth.uid in resource.data.participantIds);
+    }
+
+    // 12. Security Audit Logs collection: /audit_logs/{logId}
+    // Strictly append-only, immutable security audit trail readable solely by verified administrators
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if (isAdmin() || (isAuthenticated() && request.resource.data.get('performedBy', request.auth.uid) == request.auth.uid)) &&
+        isValidAuditLog(request.resource.data);
+      allow update, delete: if false; // Immutable audit records
+    }
+
+    // 13. Backend & Distributed Rate Limits collection: /rate_limits/{bucketId}
+    match /rate_limits/{bucketId} {
+      allow read: if isAdmin();
+      allow create, update: if (isAdmin() || isAuthenticated()) &&
+        isValidRateLimit(request.resource.data);
+      allow delete: if isAdmin();
     }
   }
 }

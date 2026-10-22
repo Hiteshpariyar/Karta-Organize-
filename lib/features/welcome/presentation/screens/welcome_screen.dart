@@ -65,7 +65,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: context.themeBackground,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AppSpacing.pagePadding,
@@ -89,7 +89,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   // Heading & Subtitle
                   Text(
                     'Welcome Back',
-                    style: AppTypography.displayMedium,
+                    style: AppTypography.displayMedium.copyWith(
+                      color: context.themeTextPrimary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.xs),

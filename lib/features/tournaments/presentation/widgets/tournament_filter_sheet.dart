@@ -26,10 +26,12 @@ class TournamentFilterSheet extends StatefulWidget {
     required EntryType? initialEntryType,
     required void Function(String gameId, TournamentStatus? status, EntryType? entryType) onApply,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -61,7 +63,9 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final games = SupportedGamesConfig.games;
+    final primaryColor = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -81,7 +85,10 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                 children: [
                   Text(
                     'Filter Tournaments',
-                    style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTypography.titleLarge.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                    ),
                   ),
                   TextButton(
                     onPressed: () {
@@ -93,16 +100,25 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                     },
                     child: Text(
                       'Reset All',
-                      style: AppTypography.bodySmall.copyWith(color: AppColors.electricBlue),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const Divider(color: AppColors.darkSurfaceBorder),
+              Divider(color: isDark ? AppColors.darkSurfaceBorder : AppColors.lightSurfaceBorder),
               const SizedBox(height: AppSpacing.sm),
 
               // Game filter
-              Text('GAME', style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text(
+                'GAME',
+                style: AppTypography.bodySmall.copyWith(
+                  color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -110,11 +126,13 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                 children: [
                   _buildChoiceChip('All Games', _selectedGameId == 'all', () {
                     setState(() => _selectedGameId = 'all');
-                  }),
+                  }, isDark, primaryColor),
                   ...games.map((g) => _buildChoiceChip(
                         g.name.split('(').first.trim(),
                         _selectedGameId == g.id,
                         () => setState(() => _selectedGameId = g.id),
+                        isDark,
+                        primaryColor,
                       )),
                 ],
               ),
@@ -122,7 +140,13 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
               const SizedBox(height: AppSpacing.md),
 
               // Status filter
-              Text('STATUS', style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text(
+                'STATUS',
+                style: AppTypography.bodySmall.copyWith(
+                  color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -130,26 +154,32 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                 children: [
                   _buildChoiceChip('All Statuses', _selectedStatus == null, () {
                     setState(() => _selectedStatus = null);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Registration Open', _selectedStatus == TournamentStatus.registrationOpen, () {
                     setState(() => _selectedStatus = TournamentStatus.registrationOpen);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Upcoming', _selectedStatus == TournamentStatus.upcoming, () {
                     setState(() => _selectedStatus = TournamentStatus.upcoming);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Lobby Full', _selectedStatus == TournamentStatus.full, () {
                     setState(() => _selectedStatus = TournamentStatus.full);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Live Now', _selectedStatus == TournamentStatus.live, () {
                     setState(() => _selectedStatus = TournamentStatus.live);
-                  }),
+                  }, isDark, primaryColor),
                 ],
               ),
 
               const SizedBox(height: AppSpacing.md),
 
               // Entry Fee filter
-              Text('ENTRY TYPE', style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text(
+                'ENTRY TYPE',
+                style: AppTypography.bodySmall.copyWith(
+                  color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -157,13 +187,13 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                 children: [
                   _buildChoiceChip('All Formats', _selectedEntryType == null, () {
                     setState(() => _selectedEntryType = null);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Free Entry Only', _selectedEntryType == EntryType.free, () {
                     setState(() => _selectedEntryType = EntryType.free);
-                  }),
+                  }, isDark, primaryColor),
                   _buildChoiceChip('Paid (Coming Soon)', _selectedEntryType == EntryType.paid, () {
                     setState(() => _selectedEntryType = EntryType.paid);
-                  }),
+                  }, isDark, primaryColor),
                 ],
               ),
 
@@ -174,8 +204,8 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.electricBlue,
-                    foregroundColor: Colors.black,
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -200,19 +230,29 @@ class _TournamentFilterSheetState extends State<TournamentFilterSheet> {
     );
   }
 
-  Widget _buildChoiceChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildChoiceChip(
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+    bool isDark,
+    Color primaryColor,
+  ) {
+    final chipBg = isDark ? AppColors.darkBackground : AppColors.lightBackground;
+    final chipBorder = isDark ? AppColors.darkSurfaceBorder : AppColors.lightSurfaceBorder;
+    final unselectedText = isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onTap(),
-      selectedColor: AppColors.electricBlueDim,
-      backgroundColor: AppColors.darkBackground,
+      selectedColor: primaryColor.withValues(alpha: isDark ? 0.2 : 0.15),
+      backgroundColor: chipBg,
       labelStyle: AppTypography.bodySmall.copyWith(
-        color: isSelected ? AppColors.electricBlue : AppColors.textSecondary,
+        color: isSelected ? primaryColor : unselectedText,
         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
       ),
       side: BorderSide(
-        color: isSelected ? AppColors.electricBlue : AppColors.darkSurfaceBorder,
+        color: isSelected ? primaryColor : chipBorder,
       ),
     );
   }

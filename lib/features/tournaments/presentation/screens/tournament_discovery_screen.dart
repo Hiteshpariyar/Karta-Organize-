@@ -36,6 +36,8 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
     final state = ref.watch(tournamentDiscoveryProvider);
     final notifier = ref.read(tournamentDiscoveryProvider.notifier);
 
@@ -43,15 +45,19 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
         state.selectedStatus != null ||
         state.selectedEntryType != null;
 
+    final canPop = Navigator.of(context).canPop();
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('All Tournaments'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        leading: canPop
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
+            : null,
         actions: [
           IconButton(
             icon: Stack(
@@ -64,8 +70,8 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.electricBlue,
+                      decoration: BoxDecoration(
+                        color: primaryAccent,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -99,14 +105,17 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
               child: TextField(
                 controller: _searchController,
                 onChanged: notifier.updateQuery,
+                style: TextStyle(
+                  color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Search by tournament or game title...',
                   hintStyle: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textMuted,
+                    color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
-                    color: AppColors.textSecondary,
+                    color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
                     size: 20,
                   ),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -119,19 +128,23 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
                         )
                       : null,
                   filled: true,
-                  fillColor: AppColors.darkSurface,
+                  fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: AppSpacing.roundedMd,
-                    borderSide: const BorderSide(color: AppColors.darkSurfaceBorder),
+                    borderSide: BorderSide(
+                      color: isDark ? AppColors.darkSurfaceBorder : AppColors.lightSurfaceBorder,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: AppSpacing.roundedMd,
-                    borderSide: const BorderSide(color: AppColors.darkSurfaceBorder),
+                    borderSide: BorderSide(
+                      color: isDark ? AppColors.darkSurfaceBorder : AppColors.lightSurfaceBorder,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: AppSpacing.roundedMd,
-                    borderSide: const BorderSide(color: AppColors.electricBlue),
+                    borderSide: BorderSide(color: primaryAccent, width: 1.5),
                   ),
                 ),
               ),
@@ -154,20 +167,20 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
                     Text(
                       'Filtering: ',
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textMuted,
+                        color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
                         fontSize: 11,
                       ),
                     ),
                     if (state.selectedGameId != 'all') ...[
-                      _buildFilterBadge('${state.selectedGameId.toUpperCase()} Game'),
+                      _buildFilterBadge('${state.selectedGameId.toUpperCase()} Game', primaryAccent),
                       const SizedBox(width: 4),
                     ],
                     if (state.selectedStatus != null) ...[
-                      _buildFilterBadge(state.selectedStatus!.label),
+                      _buildFilterBadge(state.selectedStatus!.label, primaryAccent),
                       const SizedBox(width: 4),
                     ],
                     if (state.selectedEntryType != null) ...[
-                      _buildFilterBadge(state.selectedEntryType!.label),
+                      _buildFilterBadge(state.selectedEntryType!.label, primaryAccent),
                       const SizedBox(width: 4),
                     ],
                     const Spacer(),
@@ -176,7 +189,7 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
                       child: Text(
                         'Clear',
                         style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.electricBlue,
+                          color: primaryAccent,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -191,8 +204,8 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
             // Tournament List or Status States
             Expanded(
               child: RefreshIndicator(
-                color: AppColors.electricBlue,
-                backgroundColor: AppColors.darkSurface,
+                color: primaryAccent,
+                backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 onRefresh: notifier.loadTournaments,
                 child: state.isLoading
                     ? const Center(
@@ -223,7 +236,7 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
                                 ),
                               )
                             : ListView.separated(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
                                 itemCount: state.tournaments.length,
                                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
@@ -242,18 +255,18 @@ class _TournamentDiscoveryScreenState extends ConsumerState<TournamentDiscoveryS
     );
   }
 
-  Widget _buildFilterBadge(String label) {
+  Widget _buildFilterBadge(String label, Color primaryAccent) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.electricBlueDim,
+        color: primaryAccent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.electricBlue.withValues(alpha: 0.3)),
+        border: Border.all(color: primaryAccent.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppColors.electricBlue,
+        style: TextStyle(
+          color: primaryAccent,
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),

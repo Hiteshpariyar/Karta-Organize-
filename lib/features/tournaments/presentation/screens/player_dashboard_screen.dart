@@ -2,50 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/loading_indicator.dart';
+import '../../../../core/theme/liquid_glass.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../leaderboard/presentation/providers/leaderboard_providers.dart';
 import '../../../notifications/presentation/providers/notification_providers.dart';
 import '../providers/tournament_providers.dart';
 import '../widgets/featured_tournament_card.dart';
-import '../widgets/game_selector_bar.dart';
 import '../widgets/tournament_card.dart';
 
-/// Central Player Dashboard / Home Screen.
-class PlayerDashboardScreen extends ConsumerStatefulWidget {
+class PlayerDashboardScreen extends ConsumerWidget {
   const PlayerDashboardScreen({super.key});
 
   @override
-  ConsumerState<PlayerDashboardScreen> createState() => _PlayerDashboardScreenState();
-}
-
-class _PlayerDashboardScreenState extends ConsumerState<PlayerDashboardScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final userProfile = ref.watch(currentUserProfileProvider);
-    final selectedGameId = ref.watch(selectedDashboardGameProvider);
     final featuredAsync = ref.watch(featuredTournamentsProvider);
-    final openAsync = ref.watch(openTournamentsProvider(selectedGameId));
-    final upcomingAsync = ref.watch(upcomingTournamentsProvider(selectedGameId));
+    final allTournamentsAsync = ref.watch(allTournamentsProvider);
+    final topPlayersAsync = ref.watch(topPlayersProvider);
 
     final currentUid = userProfile?.uid ?? '';
     final unreadCount = currentUid.isNotEmpty
         ? ref.watch(unreadNotificationsCountProvider(currentUid))
         : 0;
-
-    final myRegistrationsAsync = currentUid.isNotEmpty
-        ? ref.watch(playerRegistrationsStreamProvider(currentUid))
-        : null;
 
     final playerName = userProfile?.displayName.isNotEmpty == true
         ? userProfile!.displayName
@@ -53,10 +32,41 @@ class _PlayerDashboardScreenState extends ConsumerState<PlayerDashboardScreen> {
             ? userProfile!.email.split('@').first
             : 'Player');
 
+    final games = [
+      {
+        'id': 'freefire',
+        'name': 'Free Fire',
+        'tagline': 'Battle in Bermuda & Kalahari',
+        'gradient': const [Color(0xFFFF5722), Color(0xFFFF9800), Color(0xFFD84315)],
+        'icon': Icons.local_fire_department_rounded,
+      },
+      {
+        'id': 'bgmi',
+        'name': 'BGMI',
+        'tagline': 'Classic Erangel & Miramar',
+        'gradient': const [Color(0xFF2E7D32), Color(0xFF1B5E20), Color(0xFF004D40)],
+        'icon': Icons.military_tech_rounded,
+      },
+      {
+        'id': 'codm',
+        'name': 'COD Mobile',
+        'tagline': 'Search & Destroy / Hardpoint',
+        'gradient': const [Color(0xFF0284C7), Color(0xFF1E3A8A), Color(0xFF0F172A)],
+        'icon': Icons.shield_rounded,
+      },
+      {
+        'id': 'valorant',
+        'name': 'Valorant Mobile',
+        'tagline': 'Defuse the Spike 5v5',
+        'gradient': const [Color(0xFFE11D48), Color(0xFF881337), Color(0xFF4C0519)],
+        'icon': Icons.flash_on_rounded,
+      },
+    ];
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 16,
         title: Row(
@@ -64,12 +74,12 @@ class _PlayerDashboardScreenState extends ConsumerState<PlayerDashboardScreen> {
             GestureDetector(
               onTap: () => context.push(AppRoutes.playerProfile),
               child: CircleAvatar(
-                radius: 19,
-                backgroundColor: AppColors.electricBlue.withValues(alpha: 0.2),
+                radius: 20,
+                backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.25),
                 child: Text(
                   playerName.isNotEmpty ? playerName[0].toUpperCase() : 'P',
                   style: const TextStyle(
-                    color: AppColors.electricBlue,
+                    color: Color(0xFF9F7AEA),
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
                   ),
@@ -84,439 +94,400 @@ class _PlayerDashboardScreenState extends ConsumerState<PlayerDashboardScreen> {
                 children: [
                   Text(
                     'Welcome back,',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black54,
                       fontSize: 11,
                     ),
                   ),
                   Text(
                     playerName,
-                    style: AppTypography.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+            // Notifications Bell
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.notifications_none_rounded,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                  onPressed: () => context.push(AppRoutes.notifications),
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          // Notifications Action with Unread Badge
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, size: 24),
-                tooltip: 'Notifications',
-                onPressed: () => context.push(AppRoutes.notifications),
-              ),
-              if (unreadCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text(
-                      '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded, size: 24),
-            tooltip: 'Profile',
-            onPressed: () => context.push(AppRoutes.playerProfile),
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.electricBlue,
-          backgroundColor: AppColors.darkSurface,
-          onRefresh: () async {
-            ref.invalidate(featuredTournamentsProvider);
-            ref.invalidate(openTournamentsProvider);
-            ref.invalidate(upcomingTournamentsProvider);
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        color: const Color(0xFF7C3AED),
+        onRefresh: () async {
+          ref.invalidate(allTournamentsProvider);
+          ref.invalidate(featuredTournamentsProvider);
+          ref.invalidate(topPlayersProvider);
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+          children: [
+            // Game Banners Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 1. Search Bar Shortcut
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _searchController,
-                    readOnly: true,
-                    onTap: () => context.push(AppRoutes.tournaments),
-                    decoration: InputDecoration(
-                      hintText: 'Search tournaments, scrims, games...',
-                      hintStyle: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textSecondary,
-                        size: 20,
-                      ),
-                      suffixIcon: Container(
-                        margin: const EdgeInsets.all(8),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.electricBlueDim,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          size: 16,
-                          color: AppColors.electricBlue,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: AppColors.darkSurface,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: AppSpacing.roundedMd,
-                        borderSide: const BorderSide(color: AppColors.darkSurfaceBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: AppSpacing.roundedMd,
-                        borderSide: const BorderSide(color: AppColors.darkSurfaceBorder),
-                      ),
-                    ),
+                Text(
+                  'Select Your Game',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
-
-                const SizedBox(height: AppSpacing.md),
-
-                // 2. Horizontal Game Categories
-                GameSelectorBar(
-                  selectedGameId: selectedGameId,
-                  onGameSelected: (gameId) {
-                    ref.read(selectedDashboardGameProvider.notifier).select(gameId);
-                  },
-                ),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                // 3. Featured Tournament Spotlight
-                featuredAsync.when(
-                  data: (featuredList) {
-                    if (featuredList.isEmpty) return const SizedBox.shrink();
-                    final topFeatured = featuredList.first;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: FeaturedTournamentCard(
-                        tournament: topFeatured,
-                        onTap: () => context.push('/tournaments/${topFeatured.id}'),
-                      ),
-                    );
-                  },
-                  loading: () => const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24.0),
-                      child: AppLoadingIndicator(message: 'Loading featured matches...'),
-                    ),
+                Text(
+                  'Explore Hub',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF7C3AED),
                   ),
-                  error: (_, _) => const SizedBox.shrink(),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
-                const SizedBox(height: AppSpacing.xl),
+            // Horizontal Game Banners Carousel
+            SizedBox(
+              height: 140,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: games.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final g = games[index];
+                  final gradientColors = g['gradient'] as List<Color>;
 
-                // 4. "My Registered Tournaments" Banner (if active)
-                if (myRegistrationsAsync != null)
-                  myRegistrationsAsync.when(
-                    data: (regs) {
-                      if (regs.isEmpty) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.electricBlueDim,
-                            borderRadius: AppSpacing.roundedMd,
-                            border: Border.all(
-                              color: AppColors.electricBlue.withValues(alpha: 0.4),
+                  return GestureDetector(
+                    onTap: () {
+                      context.push(
+                        AppRoutes.gameDetails,
+                        extra: {
+                          'gameId': g['id'],
+                          'gameName': g['name'],
+                        },
+                      );
+                    },
+                    child: Container(
+                      width: 240,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradientColors.first.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            right: -10,
+                            bottom: -10,
+                            child: Icon(
+                              g['icon'] as IconData,
+                              size: 100,
+                              color: Colors.white.withValues(alpha: 0.15),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.darkSurface,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.verified_user_rounded,
-                                  color: AppColors.electricBlue,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
                                   children: [
-                                    Text(
-                                      'You have ${regs.length} active registration${regs.length > 1 ? 's' : ''}',
-                                      style: AppTypography.titleSmall.copyWith(
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w700,
+                                    Icon(g['icon'] as IconData, color: Colors.white, size: 22),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        g['name'] as String,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    Text(
-                                      'Next match: ${regs.first.tournamentTitle}',
-                                      style: AppTypography.bodySmall.copyWith(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 11,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.push(AppRoutes.myTournaments),
-                                child: const Text(
-                                  'View Pass',
-                                  style: TextStyle(
-                                    color: AppColors.electricBlue,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      g['tagline'] as String,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.85),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.25),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'View Hub & Tournaments',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.white),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Top Players Teaser
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Top Champions',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => context.push(AppRoutes.leaderboard),
+                  child: const Text(
+                    'Full Leaderboard >',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            topPlayersAsync.maybeWhen(
+              data: (players) {
+                if (players.isEmpty) {
+                  return LiquidGlass.container(
+                    padding: const EdgeInsets.all(14),
+                    borderRadius: 18,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Compete in tournaments to claim your rank on the leaderboard!',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final top3 = players.take(3).toList();
+                return Row(
+                  children: top3.asMap().entries.map((entry) {
+                    final rank = entry.key + 1;
+                    final player = entry.value;
+                    return LiquidGlass.podiumCard(
+                      rank: rank,
+                      name: player.displayName,
+                      score: player.score,
+                      context: context,
+                      onTap: () => context.push(AppRoutes.leaderboard),
+                    );
+                  }).toList(),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 24),
+
+            // Featured Tournaments Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Featured Tournaments',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => context.push(AppRoutes.tournaments),
+                  child: const Text(
+                    'View All >',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            featuredAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                ),
+              ),
+              error: (err, _) => Center(child: Text('Error: $err')),
+              data: (featuredList) {
+                if (featuredList.isEmpty) {
+                  return LiquidGlass.container(
+                    padding: const EdgeInsets.all(16),
+                    borderRadius: 18,
+                    child: Center(
+                      child: Text(
+                        'No featured tournaments right now. Check back soon!',
+                        style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+                      ),
+                    ),
+                  );
+                }
+
+                return SizedBox(
+                  height: 200,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: featuredList.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 14),
+                    itemBuilder: (context, i) {
+                      final t = featuredList[i];
+                      return SizedBox(
+                        width: 280,
+                        child: FeaturedTournamentCard(
+                          tournament: t,
+                          onTap: () => context.push('/tournaments/${t.id}'),
                         ),
                       );
                     },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, _) => const SizedBox.shrink(),
                   ),
-
-                // 5. Registration Open Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 3,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: AppColors.success,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Registration Open',
-                            style: AppTypography.titleMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () => context.push(AppRoutes.tournaments),
-                        child: Text(
-                          'See All',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.electricBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                openAsync.when(
-                  data: (openTourneys) {
-                    if (openTourneys.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Text(
-                          'No open registrations right now for this category.',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      );
-                    }
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: openTourneys.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final t = openTourneys[index];
-                        return TournamentCard(
-                          tournament: t,
-                          onTap: () => context.push('/tournaments/${t.id}'),
-                        );
-                      },
-                    );
-                  },
-                  loading: () => const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(color: AppColors.electricBlue),
-                    ),
-                  ),
-                  error: (e, _) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent)),
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.xl),
-
-                // 6. Upcoming Tournaments Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 3,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: AppColors.electricBlue,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Upcoming Tournaments',
-                            style: AppTypography.titleMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () => context.push(AppRoutes.tournaments),
-                        child: Text(
-                          'View Calendar',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.electricBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                upcomingAsync.when(
-                  data: (upcomingList) {
-                    if (upcomingList.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Text(
-                          'No upcoming scheduled tournaments in this section.',
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      );
-                    }
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: upcomingList.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final t = upcomingList[index];
-                        return TournamentCard(
-                          tournament: t,
-                          onTap: () => context.push('/tournaments/${t.id}'),
-                        );
-                      },
-                    );
-                  },
-                  loading: () => const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(color: AppColors.electricBlue),
-                    ),
-                  ),
-                  error: (e, _) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent)),
-                  ),
-                ),
-
-                const SizedBox(height: AppSpacing.xxl),
-              ],
+                );
+              },
             ),
-          ),
+            const SizedBox(height: 24),
+
+            // Recent Tournaments
+            Text(
+              'Latest Open Registrations',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            allTournamentsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED))),
+              error: (err, _) => Center(child: Text('Error: $err')),
+              data: (allList) {
+                if (allList.isEmpty) {
+                  return LiquidGlass.container(
+                    padding: const EdgeInsets.all(16),
+                    borderRadius: 18,
+                    child: Center(
+                      child: Text(
+                        'No tournaments available at the moment.',
+                        style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+                      ),
+                    ),
+                  );
+                }
+
+                final displayList = allList.take(5).toList();
+                return Column(
+                  children: displayList.map((t) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: TournamentCard(
+                        tournament: t,
+                        onTap: () => context.push('/tournaments/${t.id}'),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppColors.darkSurface,
-        selectedItemColor: AppColors.electricBlue,
-        unselectedItemColor: AppColors.textMuted,
-        currentIndex: 0,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on home
-              break;
-            case 1:
-              context.push(AppRoutes.tournaments);
-              break;
-            case 2:
-              context.push(AppRoutes.myTournaments);
-              break;
-            case 3:
-              context.push(AppRoutes.playerProfile);
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore_outlined),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.confirmation_number_outlined),
-            label: 'My Matches',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

@@ -50,7 +50,7 @@ class _OrganizerLoginScreenState extends ConsumerState<OrganizerLoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'No organizer application found. Please complete the application to become a verified host.',
+                  'This account is registered as a Player. Organizer privileges require an approved application.',
                 ),
                 backgroundColor: AppColors.darkSurfaceElevated,
                 duration: Duration(seconds: 4),

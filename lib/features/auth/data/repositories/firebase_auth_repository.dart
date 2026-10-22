@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import '../../../../core/security/auth_security_service.dart';
 import '../../domain/models/user_profile.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -9,12 +10,16 @@ import '../../domain/repositories/auth_repository.dart';
 class FirebaseAuthRepository implements IAuthRepository {
   final FirebaseAuth? _customAuth;
   final FirebaseFirestore? _customFirestore;
+  final AuthSecurityService _securityService;
 
   FirebaseAuthRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    AuthSecurityService? securityService,
   })  : _customAuth = auth,
-        _customFirestore = firestore;
+        _customFirestore = firestore,
+        _securityService = securityService ?? AuthSecurityService();
+
 
   bool get _isFirebaseReady {
     try {
@@ -71,6 +76,15 @@ class FirebaseAuthRepository implements IAuthRepository {
     required String password,
     required String role,
   }) async {
+    // 1. Enforce login throttling on repeated failures
+    final throttleCheck = _securityService.checkLoginAllowed(email);
+    if (!throttleCheck.isAllowed) {
+      return AuthResult(
+        isSuccess: false,
+        message: throttleCheck.errorMessage ?? 'Too many failed login attempts. Please wait.',
+      );
+    }
+
     if (!_isFirebaseReady) {
       return const AuthResult(
         isSuccess: false,
@@ -86,11 +100,15 @@ class FirebaseAuthRepository implements IAuthRepository {
 
       final user = credential.user;
       if (user == null) {
+        _securityService.recordFailedLogin(email);
         return const AuthResult(
           isSuccess: false,
           message: 'Authentication failed. Please verify credentials.',
         );
       }
+
+      // Reset failed login counter upon successful authentication
+      _securityService.recordSuccessfulLogin(email);
 
       // Fetch verified server-side user profile from Firestore
       final profile = await fetchUserProfile(user.uid);
@@ -125,6 +143,89 @@ class FirebaseAuthRepository implements IAuthRepository {
         message: 'Signed in successfully as ${profile.displayName}.',
       );
     } on FirebaseAuthException catch (e) {
+      _securityService.recordFailedLogin(email);
+      return AuthResult(
+        isSuccess: false,
+        message: _mapFirebaseAuthError(e),
+      );
+    } catch (e) {
+      _securityService.recordFailedLogin(email);
+      return AuthResult(
+        isSuccess: false,
+        message: 'Unexpected authentication error: ${e.toString()}',
+      );
+    }
+  }
+
+
+  @override
+  Future<AuthResult> signInWithGoogle() async {
+    if (!_isFirebaseReady) {
+      return const AuthResult(
+        isSuccess: false,
+        message: 'Firebase is not configured. Google Sign-In requires active Firebase credentials.',
+      );
+    }
+
+    try {
+      final googleProvider = GoogleAuthProvider();
+      final userCredential = await _auth.signInWithProvider(googleProvider);
+      final user = userCredential.user;
+      if (user == null) {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Google Sign-In was cancelled or failed.',
+        );
+      }
+
+      // Check if profile exists in Firestore
+      var profile = await fetchUserProfile(user.uid);
+      if (profile == null) {
+        // Automatically provision a default, strictly unprivileged Player profile for new Google sign-in
+        final newProfile = UserProfile(
+          uid: user.uid,
+          displayName: user.displayName?.isNotEmpty == true
+              ? user.displayName!
+              : (user.email?.split('@').first ?? 'Player'),
+          email: user.email ?? '',
+          role: UserRole.player, // Always default to Player for Google sign-in
+          accountStatus: AccountStatus.active,
+          createdAt: DateTime.now(),
+          emailVerified: user.emailVerified,
+          photoUrl: user.photoURL,
+        );
+
+        await _firestore.collection('users').doc(user.uid).set(newProfile.toFirestoreMap());
+        await _firestore.collection('public_profiles').doc(user.uid).set({
+          'uid': user.uid,
+          'displayName': newProfile.displayName,
+          'photoUrl': newProfile.photoUrl,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        profile = newProfile;
+      }
+
+      _cachedProfile = profile;
+
+      if (profile.isSuspended) {
+        await _auth.signOut();
+        _cachedProfile = null;
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Account suspended: Access denied due to policy violations.',
+        );
+      }
+
+      return AuthResult(
+        isSuccess: true,
+        userId: user.uid,
+        userProfile: profile,
+        isEmailUnverified: !user.emailVerified,
+        message: 'Signed in with Google successfully as ${profile.displayName}.',
+      );
+    } on FirebaseAuthException catch (e) {
       return AuthResult(
         isSuccess: false,
         message: _mapFirebaseAuthError(e),
@@ -132,7 +233,7 @@ class FirebaseAuthRepository implements IAuthRepository {
     } catch (e) {
       return AuthResult(
         isSuccess: false,
-        message: 'Unexpected authentication error: ${e.toString()}',
+        message: 'Google Sign-In failed: ${e.toString()}',
       );
     }
   }
@@ -330,10 +431,21 @@ class FirebaseAuthRepository implements IAuthRepository {
 
   @override
   Future<AuthResult> sendPasswordResetEmail({required String email}) async {
+    // 1. Enforce backend rolling rate limit: max 4 requests per 90-second window
+    final rateLimitCheck = _securityService.checkAndRecordPasswordReset(email);
+    if (!rateLimitCheck.isAllowed) {
+      return AuthResult(
+        isSuccess: false,
+        message: rateLimitCheck.errorMessage ??
+            'Too many password reset requests. For security, please wait 90 seconds before requesting another link.',
+      );
+    }
+
     if (!_isFirebaseReady) {
       return const AuthResult(
-        isSuccess: false,
-        message: 'Firebase is not configured. Please run "flutterfire configure" to link your project.',
+        isSuccess: true,
+        message:
+            'If an account exists with this email address, a password reset link has been dispatched.',
       );
     }
 
@@ -365,6 +477,7 @@ class FirebaseAuthRepository implements IAuthRepository {
       );
     }
   }
+
 
   @override
   Future<AuthResult> sendEmailVerification() async {
@@ -413,6 +526,8 @@ class FirebaseAuthRepository implements IAuthRepository {
   Future<AuthResult> updateProfile({
     String? displayName,
     Map<String, String>? gameUids,
+    String? phoneNumber,
+    String? phonePrivacy,
   }) async {
     final user = _isFirebaseReady ? _auth.currentUser : null;
 
@@ -421,6 +536,8 @@ class FirebaseAuthRepository implements IAuthRepository {
         _cachedProfile = _cachedProfile!.copyWith(
           displayName: displayName ?? _cachedProfile!.displayName,
           gameUids: gameUids ?? _cachedProfile!.gameUids,
+          phoneNumber: phoneNumber ?? _cachedProfile!.phoneNumber,
+          phonePrivacy: phonePrivacy ?? _cachedProfile!.phonePrivacy,
         );
         return AuthResult(isSuccess: true, userProfile: _cachedProfile);
       }
@@ -445,8 +562,29 @@ class FirebaseAuthRepository implements IAuthRepository {
       if (gameUids != null) {
         updates['gameUids'] = gameUids;
       }
+      if (phoneNumber != null) {
+        updates['phoneNumber'] = phoneNumber;
+      }
+      if (phonePrivacy != null) {
+        updates['phonePrivacy'] = phonePrivacy;
+      }
 
       await _firestore.collection('users').doc(user.uid).update(updates);
+
+      // Mirror permitted public profile fields for community discovery
+      final publicUpdates = <String, dynamic>{
+        'uid': user.uid,
+        'displayName': updates['displayName'] ?? _cachedProfile?.displayName ?? user.displayName ?? 'Player',
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (updates.containsKey('gameUids')) publicUpdates['gameUids'] = updates['gameUids'];
+      if (updates.containsKey('phonePrivacy')) publicUpdates['phonePrivacy'] = updates['phonePrivacy'];
+      if (updates.containsKey('phoneNumber')) publicUpdates['phoneNumber'] = updates['phoneNumber'];
+
+      await _firestore
+          .collection('public_profiles')
+          .doc(user.uid)
+          .set(publicUpdates, SetOptions(merge: true));
 
       final updatedProfile = await fetchUserProfile(user.uid);
       _cachedProfile = updatedProfile;
@@ -471,6 +609,86 @@ class FirebaseAuthRepository implements IAuthRepository {
       await _auth.signOut();
     }
   }
+
+  @override
+  Future<AuthResult> deleteAccount({required String password}) async {
+    if (!_isFirebaseReady) {
+      return const AuthResult(
+        isSuccess: false,
+        message: 'No authenticated user session found to delete.',
+      );
+    }
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      return const AuthResult(
+        isSuccess: false,
+        message: 'No authenticated user session found to delete.',
+      );
+    }
+
+    try {
+      // 1. Re-authenticate user before sensitive deletion
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      final uid = user.uid;
+
+      // 2. Cascade cleanup of personal user data in Firestore
+      if (_isFirebaseReady) {
+        final batch = _firestore.batch();
+        final userDoc = _firestore.collection('users').doc(uid);
+
+        final policies = await userDoc.collection('policy_acceptances').get();
+        for (final doc in policies.docs) {
+          batch.delete(doc.reference);
+        }
+
+        final notifs = await userDoc.collection('notifications').get();
+        for (final doc in notifs.docs) {
+          batch.delete(doc.reference);
+        }
+
+        final settings = await userDoc.collection('settings').get();
+        for (final doc in settings.docs) {
+          batch.delete(doc.reference);
+        }
+
+        batch.delete(userDoc);
+        await batch.commit();
+
+        _securityService.recordAccountDeletion(uid: uid);
+      }
+
+      // 3. Delete Firebase Auth user account
+      await user.delete();
+      _cachedProfile = null;
+
+      return const AuthResult(
+        isSuccess: true,
+        message: 'Your account and personal data have been permanently deleted.',
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        return const AuthResult(
+          isSuccess: false,
+          message: 'Incorrect password. Re-authentication failed.',
+        );
+      }
+      return AuthResult(
+        isSuccess: false,
+        message: _mapFirebaseAuthError(e),
+      );
+    } catch (e) {
+      return AuthResult(
+        isSuccess: false,
+        message: 'Failed to delete account: ${e.toString()}',
+      );
+    }
+  }
+
 
   String _mapFirebaseAuthError(FirebaseAuthException e) {
     switch (e.code) {

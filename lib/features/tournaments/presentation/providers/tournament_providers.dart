@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/firebase_tournament_repository.dart';
+import '../../domain/models/room_credentials.dart';
 import '../../domain/models/tournament.dart';
 import '../../domain/models/tournament_registration.dart';
 import '../../domain/repositories/tournament_repository.dart';
@@ -25,6 +26,12 @@ final selectedDashboardGameProvider =
 final featuredTournamentsProvider = FutureProvider<List<Tournament>>((ref) async {
   final repo = ref.watch(tournamentRepositoryProvider);
   return repo.fetchFeaturedTournaments();
+});
+
+/// All discoverable tournaments.
+final allTournamentsProvider = FutureProvider<List<Tournament>>((ref) async {
+  final repo = ref.watch(tournamentRepositoryProvider);
+  return repo.searchTournaments(limit: 50);
 });
 
 /// Tournaments with registration actively open.
@@ -60,4 +67,22 @@ final isTournamentRegisteredProvider =
     tournamentId: params.tournamentId,
     uid: params.uid,
   );
+});
+
+/// Fetches the authenticated player's specific registration object for a tournament.
+final playerRegistrationForTournamentProvider =
+    FutureProvider.family<TournamentRegistration?, ({String tournamentId, String uid})>(
+        (ref, params) async {
+  final repo = ref.watch(tournamentRepositoryProvider);
+  return repo.fetchPlayerRegistrationForTournament(
+    tournamentId: params.tournamentId,
+    uid: params.uid,
+  );
+});
+
+/// Live stream provider for room credentials of a tournament.
+final tournamentRoomCredentialsStreamProvider =
+    StreamProvider.family<RoomCredentials?, String>((ref, id) {
+  final repo = ref.watch(tournamentRepositoryProvider);
+  return repo.watchRoomCredentials(id);
 });

@@ -11,19 +11,77 @@ import '../../features/organizer_application/presentation/screens/organizer_stat
 import '../../features/policy/presentation/screens/organizer_terms_screen.dart';
 import '../../features/policy/presentation/screens/player_terms_screen.dart';
 import '../../features/policy/presentation/screens/privacy_policy_screen.dart';
-import '../../features/profile/presentation/screens/player_profile_screen.dart';
+import '../../features/tournaments/presentation/screens/game_details_screen.dart';
 import '../../features/tournaments/presentation/screens/my_tournaments_screen.dart';
-import '../../features/tournaments/presentation/screens/player_dashboard_screen.dart';
 import '../../features/tournaments/presentation/screens/tournament_details_screen.dart';
-import '../../features/tournaments/presentation/screens/tournament_discovery_screen.dart';
 import '../../features/tournaments/presentation/screens/tournament_registration_screen.dart';
 import '../../features/welcome/presentation/screens/welcome_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../widgets/main_scaffold.dart';
 import 'app_routes.dart';
+
+/// Top-level route guard enforcing authentication and authorization across routes.
+String? appRouteGuard(BuildContext context, GoRouterState state, {IAuthRepository? authRepoOverride}) {
+  IAuthRepository? authRepo = authRepoOverride;
+  if (authRepo == null) {
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      authRepo = container.read(authRepositoryProvider);
+    } catch (_) {
+      // In standalone tests or pre-scope evaluations
+    }
+  }
+
+  final path = state.uri.path;
+  final isAuthenticated = authRepo?.isAuthenticated ?? false;
+  final profile = authRepo?.currentUserProfile;
+  final isOrganizerApproved = (profile?.isOrganizer ?? false) || (profile?.isAdmin ?? false);
+
+  // Protect /organizer/* routes
+  if (path.startsWith('/organizer')) {
+    // 1. Organizer login is public for sign-in
+    if (path == AppRoutes.organizerLogin) {
+      return null;
+    }
+
+    // 2. Unauthenticated access to any organizer route redirects to organizer login
+    if (!isAuthenticated) {
+      return AppRoutes.organizerLogin;
+    }
+
+    // 3. Player accounts without approved organizer status can only access apply and status views
+    final isAllowedCandidateRoute = path == AppRoutes.organizerApply ||
+        path == AppRoutes.organizerReview ||
+        path == AppRoutes.organizerStatus;
+
+    if (!isAllowedCandidateRoute && !isOrganizerApproved) {
+      return AppRoutes.organizerStatus;
+    }
+  }
+
+  // 4. Authenticated users visiting entry or auth routes redirect to dashboard
+  final isAuthEntryRoute = path == AppRoutes.playerLogin ||
+      path == AppRoutes.playerRegister ||
+      path == AppRoutes.welcome;
+
+  if (isAuthenticated && isAuthEntryRoute) {
+    if (isOrganizerApproved) {
+      return AppRoutes.organizerStatus;
+    } else {
+      return AppRoutes.playerDashboard;
+    }
+  }
+
+  return null;
+}
 
 /// Centralized GoRouter navigation configuration.
 final GoRouter appRouter = GoRouter(
-  initialLocation: AppRoutes.welcome,
+  initialLocation: AppRoutes.playerLogin,
   debugLogDiagnostics: false,
+  redirect: (context, state) => appRouteGuard(context, state),
   routes: [
     // Welcome / Entry Screen
     GoRoute(
@@ -32,17 +90,54 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const WelcomeScreen(),
     ),
 
-    // Phase 3 Player Dashboard & Tournaments
+    // Main 5-Tab Navigation Root
+    GoRoute(
+      path: AppRoutes.mainScaffold,
+      name: AppRoutes.mainScaffoldName,
+      builder: (context, state) => const MainScaffold(),
+    ),
+
+    // Player Dashboard maps directly into the 5-Tab MainScaffold
     GoRoute(
       path: AppRoutes.playerDashboard,
       name: AppRoutes.playerDashboardName,
-      builder: (context, state) => const PlayerDashboardScreen(),
+      builder: (context, state) => const MainScaffold(initialIndex: 0),
     ),
     GoRoute(
       path: AppRoutes.tournaments,
       name: AppRoutes.tournamentsName,
-      builder: (context, state) => const TournamentDiscoveryScreen(),
+      builder: (context, state) => const MainScaffold(initialIndex: 1),
     ),
+    GoRoute(
+      path: AppRoutes.leaderboard,
+      name: AppRoutes.leaderboardName,
+      builder: (context, state) => const MainScaffold(initialIndex: 2),
+    ),
+    GoRoute(
+      path: AppRoutes.friends,
+      name: AppRoutes.friendsName,
+      builder: (context, state) => const MainScaffold(initialIndex: 3),
+    ),
+    GoRoute(
+      path: AppRoutes.playerProfile,
+      name: AppRoutes.playerProfileName,
+      builder: (context, state) => const MainScaffold(initialIndex: 4),
+    ),
+
+    // Game Details Screen
+    GoRoute(
+      path: AppRoutes.gameDetails,
+      name: AppRoutes.gameDetailsName,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return GameDetailsScreen(
+          gameId: extra['gameId'] ?? 'freefire',
+          gameName: extra['gameName'] ?? 'Free Fire',
+        );
+      },
+    ),
+
+    // Tournaments Subscreens
     GoRoute(
       path: AppRoutes.tournamentDetails,
       name: AppRoutes.tournamentDetailsName,
@@ -63,17 +158,12 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const MyTournamentsScreen(),
     ),
     GoRoute(
-      path: AppRoutes.playerProfile,
-      name: AppRoutes.playerProfileName,
-      builder: (context, state) => const PlayerProfileScreen(),
-    ),
-    GoRoute(
       path: AppRoutes.notifications,
       name: AppRoutes.notificationsName,
       builder: (context, state) => const NotificationsScreen(),
     ),
 
-    // Player Flow
+    // Player Auth Flow
     GoRoute(
       path: AppRoutes.playerLogin,
       name: AppRoutes.playerLoginName,
@@ -84,8 +174,6 @@ final GoRouter appRouter = GoRouter(
       name: AppRoutes.playerRegisterName,
       builder: (context, state) => const PlayerRegistrationScreen(),
     ),
-
-    // Password Reset
     GoRoute(
       path: AppRoutes.forgotPassword,
       name: AppRoutes.forgotPasswordName,
@@ -114,7 +202,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const OrganizerStatusScreen(),
     ),
 
-    // Policy Flow
+    // Policies
     GoRoute(
       path: AppRoutes.playerTerms,
       name: AppRoutes.playerTermsName,
@@ -154,4 +242,3 @@ final GoRouter appRouter = GoRouter(
     ),
   ),
 );
-

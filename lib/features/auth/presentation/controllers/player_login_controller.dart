@@ -12,10 +12,13 @@ class PlayerLoginState {
   final UserProfile? userProfile;
   final bool isEmailUnverified;
 
+  final bool isGoogleLoading;
+
   const PlayerLoginState({
     this.email = '',
     this.password = '',
     this.isLoading = false,
+    this.isGoogleLoading = false,
     this.errorMessage,
     this.successMessage,
     this.userProfile,
@@ -30,6 +33,7 @@ class PlayerLoginState {
     String? email,
     String? password,
     bool? isLoading,
+    bool? isGoogleLoading,
     String? errorMessage,
     String? successMessage,
     UserProfile? userProfile,
@@ -41,6 +45,7 @@ class PlayerLoginState {
       email: email ?? this.email,
       password: password ?? this.password,
       isLoading: isLoading ?? this.isLoading,
+      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
       userProfile: userProfile ?? this.userProfile,
@@ -64,7 +69,7 @@ class PlayerLoginNotifier extends Notifier<PlayerLoginState> {
   }
 
   Future<bool> login() async {
-    if (state.isLoading) return false;
+    if (state.isLoading || state.isGoogleLoading) return false;
 
     if (!state.isFormValid) {
       state = state.copyWith(errorMessage: 'Please enter a valid email and password.');
@@ -100,6 +105,39 @@ class PlayerLoginNotifier extends Notifier<PlayerLoginState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'An unexpected error occurred: ${e.toString()}',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> signInWithGoogle() async {
+    if (state.isLoading || state.isGoogleLoading) return false;
+
+    state = state.copyWith(isGoogleLoading: true, clearError: true, clearSuccess: true);
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final result = await authRepo.signInWithGoogle();
+
+      if (result.isSuccess) {
+        state = state.copyWith(
+          isGoogleLoading: false,
+          successMessage: result.message,
+          userProfile: result.userProfile,
+          isEmailUnverified: result.isEmailUnverified,
+        );
+        return true;
+      } else {
+        state = state.copyWith(
+          isGoogleLoading: false,
+          errorMessage: result.message ?? 'Google Sign-In failed.',
+        );
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isGoogleLoading: false,
+        errorMessage: 'An unexpected error occurred during Google Sign-In: ${e.toString()}',
       );
       return false;
     }

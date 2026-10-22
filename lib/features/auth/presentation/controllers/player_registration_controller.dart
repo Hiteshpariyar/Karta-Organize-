@@ -10,6 +10,7 @@ class PlayerRegistrationState {
   final String confirmPassword;
   final bool policyAccepted; // Strictly unchecked by default
   final bool isLoading;
+  final bool isGoogleLoading;
   final String? errorMessage;
   final String? successMessage;
   final bool requiresProfileSetup;
@@ -21,6 +22,7 @@ class PlayerRegistrationState {
     this.confirmPassword = '',
     this.policyAccepted = false,
     this.isLoading = false,
+    this.isGoogleLoading = false,
     this.errorMessage,
     this.successMessage,
     this.requiresProfileSetup = false,
@@ -42,6 +44,7 @@ class PlayerRegistrationState {
     String? confirmPassword,
     bool? policyAccepted,
     bool? isLoading,
+    bool? isGoogleLoading,
     String? errorMessage,
     String? successMessage,
     bool? requiresProfileSetup,
@@ -55,6 +58,7 @@ class PlayerRegistrationState {
       confirmPassword: confirmPassword ?? this.confirmPassword,
       policyAccepted: policyAccepted ?? this.policyAccepted,
       isLoading: isLoading ?? this.isLoading,
+      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
       requiresProfileSetup: requiresProfileSetup ?? this.requiresProfileSetup,
@@ -172,6 +176,38 @@ class PlayerRegistrationNotifier extends Notifier<PlayerRegistrationState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to complete profile: ${e.toString()}',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> signInWithGoogle() async {
+    if (state.isLoading || state.isGoogleLoading) return false;
+
+    state = state.copyWith(isGoogleLoading: true, clearError: true, clearSuccess: true);
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final result = await authRepo.signInWithGoogle();
+
+      if (result.isSuccess) {
+        state = state.copyWith(
+          isGoogleLoading: false,
+          successMessage: result.message,
+          requiresProfileSetup: false,
+        );
+        return true;
+      } else {
+        state = state.copyWith(
+          isGoogleLoading: false,
+          errorMessage: result.message ?? 'Google Sign-In failed.',
+        );
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isGoogleLoading: false,
+        errorMessage: 'An unexpected error occurred during Google Sign-In: ${e.toString()}',
       );
       return false;
     }

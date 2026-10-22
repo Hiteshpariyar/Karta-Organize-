@@ -45,10 +45,6 @@ enum AccountStatus {
 }
 
 /// Domain model representing a verified user profile in Cloud Firestore.
-///
-/// Security constraints:
-/// - New public users default strictly to [UserRole.player].
-/// - [UserRole.organizer] and [UserRole.admin] cannot be self-assigned.
 class UserProfile {
   final String uid;
   final String displayName;
@@ -63,6 +59,8 @@ class UserProfile {
   final bool emailVerified;
   final Map<String, String> gameUids;
   final String? photoUrl;
+  final String? phoneNumber;
+  final String? phonePrivacy;
 
   const UserProfile({
     required this.uid,
@@ -78,6 +76,8 @@ class UserProfile {
     this.emailVerified = false,
     this.gameUids = const {},
     this.photoUrl,
+    this.phoneNumber,
+    this.phonePrivacy = 'friends_only',
   });
 
   bool get isActive => accountStatus == AccountStatus.active;
@@ -103,6 +103,8 @@ class UserProfile {
       'emailVerified': emailVerified,
       'gameUids': gameUids,
       'photoUrl': photoUrl,
+      'phoneNumber': phoneNumber,
+      'phonePrivacy': phonePrivacy,
     };
   }
 
@@ -134,6 +136,8 @@ class UserProfile {
       emailVerified: data['emailVerified'] as bool? ?? false,
       gameUids: parseGameUids(data['gameUids']),
       photoUrl: data['photoUrl'] as String?,
+      phoneNumber: data['phoneNumber'] as String?,
+      phonePrivacy: data['phonePrivacy'] as String? ?? 'friends_only',
     );
   }
 
@@ -151,6 +155,8 @@ class UserProfile {
     bool? emailVerified,
     Map<String, String>? gameUids,
     String? photoUrl,
+    String? phoneNumber,
+    String? phonePrivacy,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -166,7 +172,8 @@ class UserProfile {
       emailVerified: emailVerified ?? this.emailVerified,
       gameUids: gameUids ?? this.gameUids,
       photoUrl: photoUrl ?? this.photoUrl,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      phonePrivacy: phonePrivacy ?? this.phonePrivacy,
     );
   }
 }
-

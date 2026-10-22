@@ -41,6 +41,10 @@ abstract class IAuthRepository {
     required String role,
   });
 
+  /// Sign in using Google authentication via Firebase Authentication.
+  /// Strictly provisions an unprivileged Player profile for new users.
+  Future<AuthResult> signInWithGoogle();
+
   /// Register a new Player account with Firebase Auth, Cloud Firestore profile,
   /// and explicit policy acceptance records.
   Future<AuthResult> registerPlayer({
@@ -75,13 +79,20 @@ abstract class IAuthRepository {
   /// Fetches the latest Firestore user profile for a given UID.
   Future<UserProfile?> fetchUserProfile(String uid);
 
-  /// Updates permitted profile fields (displayName, gameUids) without modifying
-  /// privileged security fields (role, accountStatus, policy acceptance).
+  /// Updates permitted profile fields (displayName, gameUids, phoneNumber, phonePrivacy)
+  /// without modifying privileged security fields (role, accountStatus, policy acceptance).
   Future<AuthResult> updateProfile({
     String? displayName,
     Map<String, String>? gameUids,
+    String? phoneNumber,
+    String? phonePrivacy,
   });
 
   /// Signs out of Firebase Authentication and clears session cache.
   Future<void> signOut();
+
+  /// Safely deletes the authenticated user's account and cascades cleanup
+  /// of personal data. Requires password for re-authentication.
+  Future<AuthResult> deleteAccount({required String password});
 }
+

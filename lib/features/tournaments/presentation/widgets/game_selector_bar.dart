@@ -58,6 +58,12 @@ class GameSelectorBar extends StatelessWidget {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
+    final unselectedBg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final unselectedBorder = isDark ? AppColors.darkSurfaceBorder : AppColors.lightSurfaceBorder;
+    final unselectedText = isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -65,16 +71,18 @@ class GameSelectorBar extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.electricBlueDim : AppColors.darkSurface,
+          color: isSelected
+              ? primaryColor.withValues(alpha: isDark ? 0.15 : 0.12)
+              : unselectedBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.electricBlue : AppColors.darkSurfaceBorder,
+            color: isSelected ? primaryColor : unselectedBorder,
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.electricBlue.withValues(alpha: 0.2),
+                    color: primaryColor.withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -87,13 +95,13 @@ class GameSelectorBar extends StatelessWidget {
             Icon(
               icon,
               size: 15,
-              color: isSelected ? AppColors.electricBlue : AppColors.textSecondary,
+              color: isSelected ? primaryColor : unselectedText,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.bodySmall.copyWith(
-                color: isSelected ? AppColors.electricBlue : AppColors.textSecondary,
+                color: isSelected ? primaryColor : unselectedText,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 
@@ -13,7 +12,7 @@ class AppLogo extends StatelessWidget {
     super.key,
     this.size = 64.0,
     this.showText = true,
-    this.appName = 'TourneyZone',
+    this.appName = 'Karta Organize',
   });
 
   @override
@@ -25,42 +24,43 @@ class AppLogo extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00E5FF), Color(0xFF0052D4)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
             borderRadius: BorderRadius.circular(size * 0.28),
             boxShadow: [
               BoxShadow(
-                color: AppColors.electricBlue.withValues(alpha: 0.35),
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer border ring
-              Container(
-                margin: EdgeInsets.all(size * 0.08),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.28),
+            child: Image.asset(
+              'assets/icons/app_logo.png',
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: size,
+                height: size,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(size * 0.2),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    width: 1.5,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(size * 0.28),
+                ),
+                child: Icon(
+                  Icons.emoji_events_rounded,
+                  size: size * 0.55,
+                  color: Colors.white,
                 ),
               ),
-              Icon(
-                Icons.sports_esports_rounded,
-                size: size * 0.55,
-                color: Colors.white,
-              ),
-            ],
+            ),
           ),
         ),
+
         if (showText) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(

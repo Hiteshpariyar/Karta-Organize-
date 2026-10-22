@@ -16,6 +16,8 @@ class DevAuthRepository implements IAuthRepository {
   @override
   String? get currentUid => _currentProfile?.uid;
 
+  final Map<String, UserProfile> _registeredProfilesByEmail = {};
+
   @override
   bool get isAuthenticated => _currentProfile != null;
 
@@ -29,14 +31,28 @@ class DevAuthRepository implements IAuthRepository {
     required String role,
   }) async {
     await Future.delayed(const Duration(milliseconds: 300));
+    final cleanEmail = email.trim().toLowerCase();
 
-    final profile = UserProfile(
-      uid: 'dev_user_${email.split('@').first}',
-      displayName: email.split('@').first,
-      email: email,
-      role: role.toLowerCase() == 'organizer' ? UserRole.organizer : UserRole.player,
-      accountStatus: AccountStatus.active,
-    );
+    // Check if user already exists
+    var profile = _registeredProfilesByEmail[cleanEmail];
+    if (profile == null) {
+      // Deterministic dev role: only predefined admin or organizer emails get privileged roles
+      final bool isPreApprovedOrganizer = cleanEmail.contains('organizer') || cleanEmail == 'host@tourneyzone.com';
+      final bool isPreApprovedAdmin = cleanEmail.contains('admin') || cleanEmail == 'hiteshpariyar73@gmail.com';
+      final userRole = isPreApprovedAdmin
+          ? UserRole.admin
+          : (isPreApprovedOrganizer ? UserRole.organizer : UserRole.player);
+
+      profile = UserProfile(
+        uid: 'dev_user_${cleanEmail.split('@').first}',
+        displayName: cleanEmail.split('@').first,
+        email: email,
+        role: userRole,
+        accountStatus: AccountStatus.active,
+      );
+      _registeredProfilesByEmail[cleanEmail] = profile;
+    }
+
     _currentProfile = profile;
     _authStateController.add(profile);
 
@@ -45,6 +61,36 @@ class DevAuthRepository implements IAuthRepository {
       userId: profile.uid,
       userProfile: profile,
       message: 'Signed in locally as ${profile.displayName}.',
+    );
+  }
+
+  @override
+  Future<AuthResult> signInWithGoogle() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    const googleEmail = 'google.player@tourneyzone.com';
+
+    var profile = _registeredProfilesByEmail[googleEmail];
+    if (profile == null) {
+      profile = UserProfile(
+        uid: 'dev_google_${DateTime.now().millisecondsSinceEpoch}',
+        displayName: 'Google Player',
+        email: googleEmail,
+        role: UserRole.player, // Always default to Player for Google sign-in
+        accountStatus: AccountStatus.active,
+        createdAt: DateTime.now(),
+        emailVerified: true,
+      );
+      _registeredProfilesByEmail[googleEmail] = profile;
+    }
+
+    _currentProfile = profile;
+    _authStateController.add(profile);
+
+    return AuthResult(
+      isSuccess: true,
+      userId: profile.uid,
+      userProfile: profile,
+      message: 'Signed in with Google as ${profile.displayName}.',
     );
   }
 
@@ -76,6 +122,7 @@ class DevAuthRepository implements IAuthRepository {
       privacyVersionAccepted: privacyVersion,
       policyAcceptedAt: DateTime.now(),
     );
+    _registeredProfilesByEmail[email.trim().toLowerCase()] = profile;
     _currentProfile = profile;
     _authStateController.add(profile);
 
@@ -134,6 +181,8 @@ class DevAuthRepository implements IAuthRepository {
   Future<AuthResult> updateProfile({
     String? displayName,
     Map<String, String>? gameUids,
+    String? phoneNumber,
+    String? phonePrivacy,
   }) async {
     if (_currentProfile == null) {
       return const AuthResult(isSuccess: false, message: 'No active session.');
@@ -141,6 +190,8 @@ class DevAuthRepository implements IAuthRepository {
     _currentProfile = _currentProfile!.copyWith(
       displayName: displayName ?? _currentProfile!.displayName,
       gameUids: gameUids ?? _currentProfile!.gameUids,
+      phoneNumber: phoneNumber ?? _currentProfile!.phoneNumber,
+      phonePrivacy: phonePrivacy ?? _currentProfile!.phonePrivacy,
       updatedAt: DateTime.now(),
     );
     _authStateController.add(_currentProfile);
@@ -152,5 +203,16 @@ class DevAuthRepository implements IAuthRepository {
     _currentProfile = null;
     _authStateController.add(null);
   }
+
+  @override
+  Future<AuthResult> deleteAccount({required String password}) async {
+    if (_currentProfile == null) {
+      return const AuthResult(isSuccess: false, message: 'No active session to delete.');
+    }
+    _currentProfile = null;
+    _authStateController.add(null);
+    return const AuthResult(isSuccess: true, message: 'Account successfully deleted.');
+  }
 }
+
 

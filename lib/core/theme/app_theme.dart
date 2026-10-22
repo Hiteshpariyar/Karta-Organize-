@@ -10,9 +10,9 @@ class AppTheme {
 
   static ThemeData get darkTheme {
     final colorScheme = const ColorScheme.dark().copyWith(
-      primary: AppColors.electricBlue,
-      onPrimary: AppColors.darkBackground,
-      primaryContainer: AppColors.electricBlueDark,
+      primary: const Color(0xFF9333EA),
+      onPrimary: Colors.white,
+      primaryContainer: const Color(0xFF581C87),
       onPrimaryContainer: AppColors.textPrimary,
       secondary: AppColors.fieryOrange,
       onSecondary: AppColors.darkBackground,
@@ -52,6 +52,41 @@ class AppTheme {
         margin: EdgeInsets.zero,
       ),
 
+      // Dialog Theme
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.darkSurface,
+        elevation: 16,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppSpacing.roundedLg,
+          side: const BorderSide(color: AppColors.darkSurfaceBorder, width: 1.0),
+        ),
+        titleTextStyle: AppTypography.titleLarge.copyWith(color: AppColors.textPrimary),
+        contentTextStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+      ),
+
+      // Divider Theme
+      dividerTheme: const DividerThemeData(
+        color: AppColors.darkSurfaceBorderSubtle,
+        thickness: 1,
+        space: 1,
+      ),
+
+      // Tab Bar Theme
+      tabBarTheme: TabBarThemeData(
+        labelColor: const Color(0xFF9F7AEA),
+        unselectedLabelColor: AppColors.textMuted,
+        indicatorColor: const Color(0xFF9333EA),
+        dividerColor: Colors.transparent,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+      ),
+
+      // ListTile Theme
+      listTileTheme: const ListTileThemeData(
+        iconColor: AppColors.textSecondary,
+        textColor: AppColors.textPrimary,
+      ),
+
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -59,7 +94,7 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         floatingLabelStyle: AppTypography.bodyMedium.copyWith(
-          color: AppColors.electricBlue,
+          color: const Color(0xFF9F7AEA),
           fontWeight: FontWeight.w600,
         ),
         hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
@@ -74,7 +109,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppSpacing.roundedMd,
-          borderSide: const BorderSide(color: AppColors.electricBlue, width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF9333EA), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: AppSpacing.roundedMd,
@@ -90,11 +125,11 @@ class AppTheme {
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color>((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppColors.electricBlue;
+            return const Color(0xFF9333EA);
           }
           return Colors.transparent;
         }),
-        checkColor: const WidgetStatePropertyAll(AppColors.darkBackground),
+        checkColor: const WidgetStatePropertyAll(Colors.white),
         side: const BorderSide(color: AppColors.textSecondary, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
       ),
@@ -111,14 +146,17 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     final colorScheme = const ColorScheme.light().copyWith(
-      primary: const Color(0xFF0284C7), // Sky 600
+      primary: const Color(0xFF7C3AED),
       onPrimary: Colors.white,
+      primaryContainer: const Color(0xFFEDE9FE),
+      onPrimaryContainer: const Color(0xFF4C1D95),
       secondary: AppColors.fieryOrange,
       surface: AppColors.lightSurface,
       onSurface: AppColors.lightTextPrimary,
       error: AppColors.error,
       onError: Colors.white,
       outline: AppColors.lightSurfaceBorder,
+      outlineVariant: AppColors.lightSurfaceBorderSubtle,
     );
 
     return ThemeData(
@@ -127,6 +165,7 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.lightBackground,
       fontFamily: 'Roboto',
+
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightBackground,
         foregroundColor: AppColors.lightTextPrimary,
@@ -139,6 +178,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: AppColors.lightTextPrimary),
       ),
+
       cardTheme: CardThemeData(
         color: AppColors.lightSurface,
         elevation: 0,
@@ -148,13 +188,52 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.lightSurface,
+        elevation: 16,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppSpacing.roundedLg,
+          side: const BorderSide(color: AppColors.lightSurfaceBorder, width: 1.0),
+        ),
+        titleTextStyle: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: AppColors.lightTextPrimary,
+        ),
+        contentTextStyle: const TextStyle(
+          fontSize: 14,
+          color: AppColors.lightTextSecondary,
+        ),
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: AppColors.lightSurfaceBorderSubtle,
+        thickness: 1,
+        space: 1,
+      ),
+
+      tabBarTheme: TabBarThemeData(
+        labelColor: const Color(0xFF7C3AED),
+        unselectedLabelColor: AppColors.lightTextMuted,
+        indicatorColor: const Color(0xFF7C3AED),
+        dividerColor: Colors.transparent,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        iconColor: AppColors.lightTextSecondary,
+        textColor: AppColors.lightTextPrimary,
+      ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.lightSurface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         labelStyle: const TextStyle(color: AppColors.lightTextSecondary),
         floatingLabelStyle: const TextStyle(
-          color: Color(0xFF0284C7),
+          color: Color(0xFF7C3AED),
           fontWeight: FontWeight.w600,
         ),
         hintStyle: const TextStyle(color: AppColors.lightTextMuted),
@@ -169,7 +248,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppSpacing.roundedMd,
-          borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: AppSpacing.roundedMd,
@@ -180,7 +259,13 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
       ),
+
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 }
-

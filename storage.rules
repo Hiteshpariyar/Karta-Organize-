@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for TourneyZone (Karta Organize)
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.get('admin', false) == true ||
+        request.auth.token.get('role', '') == 'admin' ||
+        (request.auth.token.email_verified == true &&
+         request.auth.token.email in ['hiteshpariyar73@gmail.com', 'admin@tourneyzone.com'])
+      );
+    }
+
+    function isValidImage(maxBytes) {
+      return request.resource != null &&
+        request.resource.size > 0 &&
+        request.resource.size <= maxBytes &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // Default Deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // 1. User Profile Avatars: /users/{userId}/{fileName}
+    match /users/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImage(5 * 1024 * 1024);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // 2. Tournament Banners: /tournaments/{tournamentId}/{fileName}
+    match /tournaments/{tournamentId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage(5 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    // 3. Match Result Evidence Screenshots: /tournaments/{tournamentId}/matches/{matchId}/{fileName}
+    match /tournaments/{tournamentId}/matches/{matchId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage(10 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    // 4. Admin and Internal Audits: /admin/{allPaths=**}
+    match /admin/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
+

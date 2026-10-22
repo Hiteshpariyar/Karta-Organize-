@@ -1,10 +1,12 @@
+import '../models/room_credentials.dart';
 import '../models/tournament.dart';
 import '../models/tournament_registration.dart';
 
-/// Result object for tournament registration attempts.
+/// Result object for tournament registration / application attempts.
 class RegistrationResult {
   final bool isSuccess;
   final String? registrationId;
+  final int? assignedSlot;
   final String? message;
   final bool isFull;
   final bool isDuplicate;
@@ -14,6 +16,7 @@ class RegistrationResult {
   const RegistrationResult({
     required this.isSuccess,
     this.registrationId,
+    this.assignedSlot,
     this.message,
     this.isFull = false,
     this.isDuplicate = false,
@@ -23,11 +26,13 @@ class RegistrationResult {
 
   factory RegistrationResult.success({
     required String registrationId,
+    int? assignedSlot,
     String message = 'Registration confirmed successfully!',
   }) {
     return RegistrationResult(
       isSuccess: true,
       registrationId: registrationId,
+      assignedSlot: assignedSlot,
       message: message,
     );
   }
@@ -50,7 +55,7 @@ class RegistrationResult {
   }
 }
 
-/// Abstract contract for tournament discovery, detail retrieval, and registration operations.
+/// Abstract contract for tournament discovery, detail retrieval, slot allocation, and credentials.
 abstract class ITournamentRepository {
   /// Fetches featured tournaments for the player dashboard.
   Future<List<Tournament>> fetchFeaturedTournaments();
@@ -81,6 +86,8 @@ abstract class ITournamentRepository {
   Future<RegistrationResult> registerForFreeTournament({
     required String tournamentId,
     required String gameUid,
+    String? teamName,
+    List<String>? squadMembers,
   });
 
   /// Fetches all tournament registrations for a specific authenticated player.
@@ -91,4 +98,16 @@ abstract class ITournamentRepository {
 
   /// Checks if a player is already registered for a specific tournament.
   Future<bool> isPlayerRegistered({required String tournamentId, required String uid});
+
+  /// Fetches a player's specific registration for a tournament if existing.
+  Future<TournamentRegistration?> fetchPlayerRegistrationForTournament({
+    required String tournamentId,
+    required String uid,
+  });
+
+  /// Securely fetches room credentials for approved/registered players.
+  Future<RoomCredentials?> fetchRoomCredentials(String tournamentId);
+
+  /// Streams room credentials for approved/registered players.
+  Stream<RoomCredentials?> watchRoomCredentials(String tournamentId);
 }

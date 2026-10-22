@@ -36,12 +36,14 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
     final user = ref.watch(currentUserProfileProvider);
     final uid = user?.uid ?? '';
 
     if (uid.isEmpty) {
       return Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(title: const Text('My Tournaments')),
         body: Center(
           child: EmptyStateWidget(
@@ -58,9 +60,10 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
     final registrationsAsync = ref.watch(playerRegistrationsStreamProvider(uid));
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('My Tournaments'),
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           tooltip: 'Back',
@@ -68,9 +71,9 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.electricBlue,
-          labelColor: AppColors.electricBlue,
-          unselectedLabelColor: AppColors.textSecondary,
+          indicatorColor: primaryAccent,
+          labelColor: primaryAccent,
+          unselectedLabelColor: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
           labelStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.bold),
           tabs: const [
             Tab(text: 'Upcoming'),
@@ -131,13 +134,20 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
   }
 
   Widget _buildRegistrationList(List<TournamentRegistration> list, String emptyMessage) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = AppColors.surfaceOf(context);
+    final cardBorder = AppColors.borderOf(context);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
+
     if (list.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Text(
             emptyMessage,
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodyMedium.copyWith(color: textSecondary),
             textAlign: TextAlign.center,
           ),
         ),
@@ -155,12 +165,12 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.darkSurface,
+            color: cardBg,
             borderRadius: AppSpacing.roundedMd,
-            border: Border.all(color: AppColors.darkSurfaceBorder),
+            border: Border.all(color: cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -176,17 +186,36 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
                     child: Text(
                       reg.gameName,
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.electricBlue,
+                        color: primaryAccent,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (reg.assignedSlot != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: primaryAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: primaryAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        'SLOT #${reg.assignedSlot}',
+                        style: TextStyle(
+                          color: primaryAccent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.successDim,
+                      color: AppColors.success.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
                     ),
@@ -204,50 +233,80 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen>
               const SizedBox(height: 8),
               Text(
                 reg.tournamentTitle,
-                style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.w700),
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.badge_outlined, size: 14, color: AppColors.textSecondary),
+                  Icon(Icons.badge_outlined, size: 14, color: textSecondary),
                   const SizedBox(width: 4),
                   Text(
-                    'In-Game UID: ${reg.gameUid}',
+                    'In-Game ID: ${reg.gameUid}',
                     style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
+                      color: textSecondary,
                     ),
                   ),
+                  if (reg.teamName != null && reg.teamName!.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Icon(Icons.shield_outlined, size: 14, color: textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Team: ${reg.teamName}',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               if (matchDate != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.access_time_rounded, size: 14, color: textSecondary),
                     const SizedBox(width: 4),
                     Text(
-                      'Starts: ${matchDate.day}/${matchDate.month}/${matchDate.year} at ${matchDate.hour.toString().padLeft(2, '0')}:${matchDate.minute.toString().padLeft(2, '0')}',
+                      'Starts: ${matchDate.day}/${matchDate.month}/${matchDate.year} at ${matchDate.hour.toString().padLeft(2, '0')}:${matchDate.minute.toString().padLeft(2, '0')} (${matchDate.timeZoneName})',
                       style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
+                        color: textSecondary,
                       ),
                     ),
                   ],
                 ),
               ],
               const SizedBox(height: 12),
-              const Divider(color: AppColors.darkSurfaceBorderSubtle, height: 1),
+              Divider(color: cardBorder, height: 1),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                  label: const Text('View Tournament'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.electricBlue,
-                    padding: EdgeInsets.zero,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.vpn_key_rounded, size: 14, color: AppColors.success),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Room ID in Details',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: () => context.push('/tournaments/${reg.tournamentId}'),
-                ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                    label: const Text('View Pass & Room ID'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryAccent,
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: () => context.push('/tournaments/${reg.tournamentId}'),
+                  ),
+                ],
               ),
             ],
           ),

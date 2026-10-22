@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import '../../domain/models/room_credentials.dart';
 import '../../domain/models/tournament.dart';
 import '../../domain/models/tournament_registration.dart';
 import '../../domain/repositories/tournament_repository.dart';
@@ -97,11 +98,6 @@ class FirebaseTournamentRepository implements ITournamentRepository {
       }
 
       final snapshot = await query.orderBy('startsAt').limit(limit).get();
-
-      if (snapshot.docs.isEmpty) {
-        return await _devFallback.fetchOpenTournaments(gameId: gameId, limit: limit);
-      }
-
       return snapshot.docs.map((doc) => Tournament.fromMap(doc.data(), id: doc.id)).toList();
     } catch (_) {
       return await _devFallback.fetchOpenTournaments(gameId: gameId, limit: limit);
@@ -149,7 +145,8 @@ class FirebaseTournamentRepository implements ITournamentRepository {
         results = results.where((t) {
           return t.title.toLowerCase().contains(q) ||
               t.gameName.toLowerCase().contains(q) ||
-              t.description.toLowerCase().contains(q);
+              t.description.toLowerCase().contains(q) ||
+              t.displayOrganizerTeam.toLowerCase().contains(q);
         }).toList();
       }
 
@@ -199,6 +196,8 @@ class FirebaseTournamentRepository implements ITournamentRepository {
   Future<RegistrationResult> registerForFreeTournament({
     required String tournamentId,
     required String gameUid,
+    String? teamName,
+    List<String>? squadMembers,
   }) async {
     final user = _isFirebaseReady ? _auth.currentUser : null;
     final uid = user?.uid ?? 'offline_player_uid';
@@ -207,6 +206,8 @@ class FirebaseTournamentRepository implements ITournamentRepository {
       return _devFallback.registerForFreeTournament(
         tournamentId: tournamentId,
         gameUid: gameUid,
+        teamName: teamName,
+        squadMembers: squadMembers,
         currentUserId: uid,
       );
     }
@@ -229,7 +230,8 @@ class FirebaseTournamentRepository implements ITournamentRepository {
       // 2. Perform atomic Firestore transaction
       final tourneyDocRef = _firestore.collection('tournaments').doc(tournamentId);
       final regDocRef = tourneyDocRef.collection('registrations').doc(uid);
-      final userRegDocRef = _firestore.collection('users').doc(uid).collection('registrations').doc(tournamentId);
+      final userRegDocRef =
+          _firestore.collection('users').doc(uid).collection('registrations').doc(tournamentId);
 
       return await _firestore.runTransaction<RegistrationResult>((transaction) async {
         final tourneySnap = await transaction.get(tourneyDocRef);
@@ -247,7 +249,8 @@ class FirebaseTournamentRepository implements ITournamentRepository {
 
         if (tournament.status != TournamentStatus.registrationOpen) {
           return RegistrationResult.failure(
-            message: 'Registration is not open for this tournament (Status: ${tournament.status.label}).',
+            message:
+                'Registration is not open for this tournament (Status: ${tournament.status.label}).',
           );
         }
 
@@ -275,6 +278,7 @@ class FirebaseTournamentRepository implements ITournamentRepository {
         }
 
         final newCount = tournament.registeredCount + 1;
+        final assignedSlot = newCount;
         final isNowFull = newCount >= tournament.maxParticipants;
 
         // Atomic update of tournament capacity
@@ -292,8 +296,14 @@ class FirebaseTournamentRepository implements ITournamentRepository {
           'gameId': tournament.gameId,
           'gameName': tournament.gameName,
           'gameUid': gameUid.trim(),
+          'assignedSlot': assignedSlot,
+          'teamName': teamName?.trim(),
+          'squadMembers': squadMembers,
+          'paymentStatus': 'free',
           'status': 'confirmed',
           'registeredAt': FieldValue.serverTimestamp(),
+          'appliedAt': FieldValue.serverTimestamp(),
+          'approvedAt': FieldValue.serverTimestamp(),
           'tournamentStartsAt': Timestamp.fromDate(tournament.startsAt),
           'bannerUrl': tournament.bannerUrl,
         };
@@ -302,15 +312,13 @@ class FirebaseTournamentRepository implements ITournamentRepository {
         transaction.set(userRegDocRef, regData);
 
         // Record player notification
-        final notifRef = _firestore
-            .collection('users')
-            .doc(uid)
-            .collection('notifications')
-            .doc();
+        final notifRef =
+            _firestore.collection('users').doc(uid).collection('notifications').doc();
 
         transaction.set(notifRef, {
-          'title': 'Tournament Registration Confirmed',
-          'body': 'You have secured a slot for ${tournament.title}. Matches begin at ${tournament.startsAt.toLocal()}.',
+          'title': 'Tournament Slot #$assignedSlot Confirmed',
+          'body':
+              'You have secured Slot #$assignedSlot for ${tournament.title}. Matches begin at ${tournament.startsAt.toLocal()}. Check Room ID 15 minutes before start.',
           'type': 'registration',
           'referenceId': tournament.id,
           'isRead': false,
@@ -319,7 +327,9 @@ class FirebaseTournamentRepository implements ITournamentRepository {
 
         return RegistrationResult.success(
           registrationId: uid,
-          message: 'Slot confirmed! Your registration for ${tournament.title} is successful.',
+          assignedSlot: assignedSlot,
+          message:
+              'Slot confirmed! Your registration for ${tournament.title} is successful at Slot #$assignedSlot.',
         );
       });
     } on FirebaseException catch (e) {
@@ -387,5 +397,74 @@ class FirebaseTournamentRepository implements ITournamentRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  @override
+  Future<TournamentRegistration?> fetchPlayerRegistrationForTournament({
+    required String tournamentId,
+    required String uid,
+  }) async {
+    if (!_isFirebaseReady) {
+      return _devFallback.fetchPlayerRegistrationForTournament(
+        tournamentId: tournamentId,
+        uid: uid,
+      );
+    }
+
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('registrations')
+          .doc(tournamentId)
+          .get();
+      if (!doc.exists || doc.data() == null) {
+        return null;
+      }
+      return TournamentRegistration.fromMap(doc.data()!, id: doc.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<RoomCredentials?> fetchRoomCredentials(String tournamentId) async {
+    if (!_isFirebaseReady) {
+      return _devFallback.fetchRoomCredentials(tournamentId);
+    }
+
+    try {
+      final doc = await _firestore
+          .collection('tournaments')
+          .doc(tournamentId)
+          .collection('room_credentials')
+          .doc('details')
+          .get();
+
+      if (!doc.exists || doc.data() == null) {
+        return null;
+      }
+      return RoomCredentials.fromMap(doc.data()!, tournamentId: tournamentId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Stream<RoomCredentials?> watchRoomCredentials(String tournamentId) {
+    if (!_isFirebaseReady) {
+      return _devFallback.watchRoomCredentials(tournamentId);
+    }
+
+    return _firestore
+        .collection('tournaments')
+        .doc(tournamentId)
+        .collection('room_credentials')
+        .doc('details')
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return RoomCredentials.fromMap(doc.data()!, tournamentId: tournamentId);
+    });
   }
 }

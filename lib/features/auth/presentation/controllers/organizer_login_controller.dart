@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/form_validators.dart';
 import '../../../organizer_application/domain/models/organizer_application.dart';
 import '../../../organizer_application/presentation/providers/organizer_providers.dart';
+import '../../domain/models/account_authorization_state.dart';
 import '../../domain/models/user_profile.dart';
 import '../providers/auth_providers.dart';
 
@@ -136,9 +137,17 @@ class OrganizerLoginNotifier extends Notifier<OrganizerLoginState> {
 
       OrganizerLoginDestination destination;
       String notice;
+      String? playerGatingError;
+
+      // 4. Resolve authoritative account authorization state
+      final authState = AccountAuthorizationState.resolve(
+        profile: profile,
+        application: application,
+      );
 
       if (application == null) {
         destination = OrganizerLoginDestination.apply;
+        playerGatingError = 'This account is registered as a Player. Organizer privileges require an approved application.';
         notice = 'No application found. Please complete the organizer credential application.';
       } else {
         switch (application.status) {
@@ -168,6 +177,7 @@ class OrganizerLoginNotifier extends Notifier<OrganizerLoginState> {
         application: application,
         destination: destination,
         statusNotice: notice,
+        errorMessage: playerGatingError,
       );
       return true;
     } catch (e) {

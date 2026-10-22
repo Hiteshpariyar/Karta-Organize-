@@ -28,11 +28,13 @@ class _TournamentRegistrationScreenState
     extends ConsumerState<TournamentRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _gameUidController;
+  late final TextEditingController _teamNameController;
 
   @override
   void initState() {
     super.initState();
     _gameUidController = TextEditingController();
+    _teamNameController = TextEditingController();
 
     // Auto-populate game UID if stored in player profile
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,6 +55,7 @@ class _TournamentRegistrationScreenState
   @override
   void dispose() {
     _gameUidController.dispose();
+    _teamNameController.dispose();
     super.dispose();
   }
 
@@ -67,17 +70,23 @@ class _TournamentRegistrationScreenState
         ref.invalidate(openTournamentsProvider);
         ref.invalidate(upcomingTournamentsProvider);
 
-        _showSuccessDialog();
+        final state = ref.read(tournamentRegistrationProvider);
+        _showSuccessDialog(state.assignedSlot);
       }
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog(int? assignedSlot) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = AppColors.surfaceOf(context);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
+        backgroundColor: cardBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: AppColors.success, width: 1.5),
@@ -86,7 +95,10 @@ class _TournamentRegistrationScreenState
           children: [
             const Icon(Icons.verified_rounded, color: AppColors.success, size: 28),
             const SizedBox(width: 10),
-            Text('Entry Confirmed!', style: AppTypography.titleLarge),
+            Text(
+              'Entry Confirmed!',
+              style: AppTypography.titleLarge.copyWith(color: textPrimary),
+            ),
           ],
         ),
         content: Column(
@@ -94,43 +106,105 @@ class _TournamentRegistrationScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Your slot has been reserved. You can review your match schedule and check-in details from My Tournaments.',
-              style: AppTypography.bodyMedium,
+              'Your tournament slot has been securely allocated.',
+              style: AppTypography.bodyMedium.copyWith(color: textPrimary),
             ),
             const SizedBox(height: 12),
+            if (assignedSlot != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tag_rounded, size: 20, color: AppColors.success),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Assigned Slot: #$assignedSlot',
+                      style: AppTypography.titleMedium.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.darkBackground,
+                color: isDark ? const Color(0xFF161F30) : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.badge_outlined, size: 16, color: AppColors.electricBlue),
-                  const SizedBox(width: 8),
-                  Text(
-                    'In-Game ID: ${_gameUidController.text.trim()}',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.electricBlue,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.badge_outlined, size: 16, color: AppColors.electricBlue),
+                      const SizedBox(width: 8),
+                      Text(
+                        'In-Game ID: ${_gameUidController.text.trim()}',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: isDark ? AppColors.electricBlue : const Color(0xFF7C3AED),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
+                  if (_teamNameController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.shield_outlined, size: 16, color: textSecondary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Team: ${_teamNameController.text.trim()}',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 15, color: textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Custom Room ID and Password will unlock in Tournament Details 15 minutes before match start.',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.electricBlue,
-              foregroundColor: Colors.black,
+              backgroundColor: isDark ? AppColors.electricBlue : const Color(0xFF7C3AED),
+              foregroundColor: isDark ? Colors.black : Colors.white,
             ),
             onPressed: () {
               Navigator.of(ctx).pop();
               context.go(AppRoutes.myTournaments);
             },
-            child: const Text('View My Tournaments'),
+            child: const Text('View in My Tournaments'),
           ),
         ],
       ),
@@ -143,10 +217,18 @@ class _TournamentRegistrationScreenState
     final regState = ref.watch(tournamentRegistrationProvider);
     final regNotifier = ref.read(tournamentRegistrationProvider.notifier);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = AppColors.surfaceOf(context);
+    final cardBorder = AppColors.borderOf(context);
+    final textPrimary = AppColors.textPrimaryOf(context);
+    final textSecondary = AppColors.textSecondaryOf(context);
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Tournament Entry'),
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           tooltip: 'Back',
@@ -174,56 +256,69 @@ class _TournamentRegistrationScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Summary Banner
+                        // Summary Banner Card
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppColors.darkSurface,
+                            color: cardBg,
                             borderRadius: AppSpacing.roundedLg,
-                            border: Border.all(color: AppColors.darkSurfaceBorder),
+                            border: Border.all(color: cardBorder),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                tournament.gameName,
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.electricBlue,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    tournament.gameName,
+                                    style: AppTypography.bodySmall.copyWith(
+                                      color: primaryAccent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.success.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      tournament.formattedEntryFee,
+                                      style: AppTypography.bodySmall.copyWith(
+                                        color: AppColors.success,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
                                 tournament.title,
                                 style: AppTypography.titleLarge.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle_outline_rounded,
-                                        size: 16,
-                                        color: AppColors.success,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'FREE REGISTRATION',
-                                        style: AppTypography.bodySmall.copyWith(
-                                          color: AppColors.success,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    'Host: ${tournament.displayOrganizerTeam}',
+                                    style: AppTypography.bodySmall.copyWith(
+                                      color: textSecondary,
+                                    ),
                                   ),
                                   Text(
-                                    '${tournament.availableSlots} slots left',
+                                    '${tournament.availableSlots} of ${tournament.maxParticipants} slots left',
                                     style: AppTypography.bodySmall.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: tournament.availableSlots <= 3
+                                          ? AppColors.warning
+                                          : AppColors.success,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
@@ -237,7 +332,7 @@ class _TournamentRegistrationScreenState
                         if (regState.errorMessage != null) ...[
                           StatusBanner(
                             title: 'Registration Error',
-                            message: regState.errorMessage,
+                            message: regState.errorMessage!,
                             type: StatusBannerType.error,
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -248,13 +343,14 @@ class _TournamentRegistrationScreenState
                           'Player Verification & In-Game UID',
                           style: AppTypography.titleSmall.copyWith(
                             fontWeight: FontWeight.w700,
+                            color: textPrimary,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Provide your verified in-game ID for lobby whitelist invite.',
+                          'Provide your verified character ID for custom room lobby whitelist.',
                           style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.textSecondary,
+                            color: textSecondary,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -276,18 +372,45 @@ class _TournamentRegistrationScreenState
                           onChanged: regNotifier.updateGameUid,
                         ),
 
+                        // Optional Team / Squad Name if tournament team size > 1
+                        if (tournament.teamSize > 1) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            'Squad / Team Information',
+                            style: AppTypography.titleSmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Enter your squad/clan name for scoreboard allocation.',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          AppTextField(
+                            controller: _teamNameController,
+                            label: 'Squad / Clan Name (Optional)',
+                            hint: 'e.g. Soul Gaming / Team Elite',
+                            prefixIcon: Icons.shield_outlined,
+                            onChanged: regNotifier.updateTeamName,
+                          ),
+                        ],
+
                         const SizedBox(height: AppSpacing.lg),
 
                         // Tournament Rules Confirmation
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppColors.darkSurface,
+                            color: cardBg,
                             borderRadius: AppSpacing.roundedMd,
                             border: Border.all(
                               color: regState.rulesAccepted
-                                  ? AppColors.electricBlueBorder
-                                  : AppColors.darkSurfaceBorder,
+                                  ? primaryAccent
+                                  : cardBorder,
                             ),
                           ),
                           child: Column(
@@ -296,7 +419,7 @@ class _TournamentRegistrationScreenState
                               Text(
                                 'Tournament Rules Summary',
                                 style: AppTypography.titleSmall.copyWith(
-                                  color: AppColors.textPrimary,
+                                  color: textPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -304,15 +427,16 @@ class _TournamentRegistrationScreenState
                               Text(
                                 tournament.rules,
                                 style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.textSecondary,
+                                  color: textSecondary,
                                   height: 1.4,
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              const Divider(color: AppColors.darkSurfaceBorderSubtle),
+                              Divider(color: cardBorder, height: 1),
                               const SizedBox(height: 6),
                               InkWell(
-                                onTap: () => regNotifier.toggleRulesAccepted(!regState.rulesAccepted),
+                                onTap: () =>
+                                    regNotifier.toggleRulesAccepted(!regState.rulesAccepted),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -322,8 +446,8 @@ class _TournamentRegistrationScreenState
                                       child: Checkbox(
                                         value: regState.rulesAccepted,
                                         onChanged: regNotifier.toggleRulesAccepted,
-                                        activeColor: AppColors.electricBlue,
-                                        checkColor: Colors.black,
+                                        activeColor: primaryAccent,
+                                        checkColor: Colors.white,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -332,8 +456,8 @@ class _TournamentRegistrationScreenState
                                         'I agree to the Tournament Rules, Fair Play policy, and confirm my lobby attendance.',
                                         style: AppTypography.bodySmall.copyWith(
                                           color: regState.rulesAccepted
-                                              ? AppColors.textPrimary
-                                              : AppColors.textSecondary,
+                                              ? textPrimary
+                                              : textSecondary,
                                           fontWeight: regState.rulesAccepted
                                               ? FontWeight.w600
                                               : FontWeight.normal,
@@ -363,7 +487,7 @@ class _TournamentRegistrationScreenState
                           child: Text(
                             'Registration is 100% free with no hidden charges.',
                             style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textMuted,
+                              color: textSecondary,
                               fontSize: 11,
                             ),
                           ),

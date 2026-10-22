@@ -1,4 +1,4 @@
-/// Constants for all route names and paths in TourneyZone.
+/// Constants for all route names and paths in TourneyZone / Karta Organize.
 class AppRoutes {
   AppRoutes._();
 
@@ -15,7 +15,8 @@ class AppRoutes {
   static const String organizerTerms = '/policy/organizer-terms';
   static const String privacyPolicy = '/policy/privacy';
 
-  // Phase 3 Player, Tournament & Notification paths
+  // Player Navigation & Features
+  static const String mainScaffold = '/main';
   static const String playerDashboard = '/player/dashboard';
   static const String tournaments = '/tournaments';
   static const String tournamentDetails = '/tournaments/:id';
@@ -23,6 +24,9 @@ class AppRoutes {
   static const String myTournaments = '/player/my-tournaments';
   static const String playerProfile = '/player/profile';
   static const String notifications = '/notifications';
+  static const String leaderboard = '/leaderboard';
+  static const String friends = '/friends';
+  static const String gameDetails = '/game-details';
 
   // Route names (for pushNamed/goNamed)
   static const String welcomeName = 'welcome';
@@ -37,7 +41,7 @@ class AppRoutes {
   static const String organizerTermsName = 'organizer-terms';
   static const String privacyPolicyName = 'privacy-policy';
 
-  // Phase 3 Route names
+  static const String mainScaffoldName = 'main-scaffold';
   static const String playerDashboardName = 'player-dashboard';
   static const String tournamentsName = 'tournaments';
   static const String tournamentDetailsName = 'tournament-details';
@@ -45,5 +49,7 @@ class AppRoutes {
   static const String myTournamentsName = 'my-tournaments';
   static const String playerProfileName = 'player-profile';
   static const String notificationsName = 'notifications';
+  static const String leaderboardName = 'leaderboard';
+  static const String friendsName = 'friends';
+  static const String gameDetailsName = 'game-details';
 }
-

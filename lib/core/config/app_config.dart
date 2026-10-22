@@ -6,7 +6,7 @@ class AppConfig {
   AppConfig._();
 
   /// The working application name.
-  static const String appName = 'TourneyZone';
+  static const String appName = 'Karta Organize';
 
   /// Application tagline / slogan.
   static const String appTagline = 'Compete. Connect. Conquer.';

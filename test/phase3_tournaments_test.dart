@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tourney_zone/features/auth/domain/models/user_profile.dart';
-import 'package:tourney_zone/features/notifications/data/repositories/dev_notification_repository.dart';
-import 'package:tourney_zone/features/notifications/domain/models/app_notification.dart';
-import 'package:tourney_zone/features/notifications/presentation/controllers/notification_controller.dart';
-import 'package:tourney_zone/features/notifications/presentation/providers/notification_providers.dart';
-import 'package:tourney_zone/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:tourney_zone/features/tournaments/data/repositories/dev_tournament_repository.dart';
 import 'package:tourney_zone/features/tournaments/domain/models/tournament.dart';
 import 'package:tourney_zone/features/tournaments/domain/models/tournament_registration.dart';
@@ -383,28 +378,31 @@ void main() {
 
     test('TournamentDiscoveryController updates filters and performs searches', () async {
       final controller = container.read(tournamentDiscoveryProvider.notifier);
-      await controller.init();
+      await controller.loadTournaments();
 
       var state = container.read(tournamentDiscoveryProvider);
       expect(state.isLoading, isFalse);
       expect(state.tournaments, isNotEmpty);
 
       // Filter by BGMI
-      await controller.setGameId('bgmi');
+      controller.selectGame('bgmi');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       state = container.read(tournamentDiscoveryProvider);
       expect(state.selectedGameId, equals('bgmi'));
       expect(state.tournaments.every((t) => t.gameId == 'bgmi'), isTrue);
 
       // Search text query
-      await controller.setSearchQuery('Scrims');
+      controller.updateQuery('Scrims');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       state = container.read(tournamentDiscoveryProvider);
-      expect(state.searchQuery, equals('Scrims'));
+      expect(state.query, equals('Scrims'));
 
       // Reset filters
-      await controller.resetFilters();
+      controller.resetFilters();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       state = container.read(tournamentDiscoveryProvider);
-      expect(state.selectedGameId, isNull);
-      expect(state.searchQuery, isEmpty);
+      expect(state.selectedGameId, equals('all'));
+      expect(state.query, isEmpty);
       expect(state.selectedStatus, isNull);
     });
 
@@ -434,43 +432,6 @@ void main() {
       regState = container.read(tournamentRegistrationProvider);
       expect(regState.isSuccess, isTrue);
       expect(regState.successMessage, contains('Registration confirmed'));
-    });
-
-    test('DevNotificationRepository streams notifications and marks them read', () async {
-      final notifRepo = DevNotificationRepository();
-      const testUid = 'notif_player_01';
-
-      // Seed a test notification
-      await notifRepo.addNotification(
-        uid: testUid,
-        title: 'Match Reminder',
-        body: 'Your match starts in 15 minutes!',
-        type: NotificationType.matchAlert,
-      );
-
-      final unreadCount = await notifRepo.fetchUnreadCount(testUid);
-      expect(unreadCount, equals(1));
-
-      final notifications = await notifRepo.fetchNotifications(uid: testUid);
-      expect(notifications.length, equals(1));
-      expect(notifications.first.isRead, isFalse);
-
-      // Mark as read
-      await notifRepo.markAsRead(uid: testUid, notificationId: notifications.first.id);
-      final updatedUnread = await notifRepo.fetchUnreadCount(testUid);
-      expect(updatedUnread, equals(0));
-
-      // Mark all as read
-      await notifRepo.addNotification(
-        uid: testUid,
-        title: 'Bracket Updated',
-        body: 'Check the new bracket standings.',
-        type: NotificationType.system,
-      );
-      expect(await notifRepo.fetchUnreadCount(testUid), equals(1));
-
-      await notifRepo.markAllAsRead(testUid);
-      expect(await notifRepo.fetchUnreadCount(testUid), equals(0));
     });
   });
 

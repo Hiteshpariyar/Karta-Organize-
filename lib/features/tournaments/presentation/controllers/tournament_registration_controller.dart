@@ -3,10 +3,12 @@ import '../providers/tournament_providers.dart';
 
 class TournamentRegistrationState {
   final String gameUid;
+  final String teamName;
   final bool rulesAccepted;
   final bool isLoading;
   final String? errorMessage;
   final String? successMessage;
+  final int? assignedSlot;
   final bool isSuccess;
   final bool isDuplicate;
   final bool isFull;
@@ -15,10 +17,12 @@ class TournamentRegistrationState {
 
   const TournamentRegistrationState({
     this.gameUid = '',
+    this.teamName = '',
     this.rulesAccepted = false,
     this.isLoading = false,
     this.errorMessage,
     this.successMessage,
+    this.assignedSlot,
     this.isSuccess = false,
     this.isDuplicate = false,
     this.isFull = false,
@@ -30,10 +34,12 @@ class TournamentRegistrationState {
 
   TournamentRegistrationState copyWith({
     String? gameUid,
+    String? teamName,
     bool? rulesAccepted,
     bool? isLoading,
     String? errorMessage,
     String? successMessage,
+    int? assignedSlot,
     bool? isSuccess,
     bool? isDuplicate,
     bool? isFull,
@@ -44,10 +50,12 @@ class TournamentRegistrationState {
   }) {
     return TournamentRegistrationState(
       gameUid: gameUid ?? this.gameUid,
+      teamName: teamName ?? this.teamName,
       rulesAccepted: rulesAccepted ?? this.rulesAccepted,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
+      assignedSlot: assignedSlot ?? this.assignedSlot,
       isSuccess: isSuccess ?? this.isSuccess,
       isDuplicate: isDuplicate ?? this.isDuplicate,
       isFull: isFull ?? this.isFull,
@@ -65,6 +73,10 @@ class TournamentRegistrationNotifier extends Notifier<TournamentRegistrationStat
 
   void updateGameUid(String value) {
     state = state.copyWith(gameUid: value, clearError: true);
+  }
+
+  void updateTeamName(String value) {
+    state = state.copyWith(teamName: value, clearError: true);
   }
 
   void toggleRulesAccepted(bool? value) {
@@ -90,12 +102,14 @@ class TournamentRegistrationNotifier extends Notifier<TournamentRegistrationStat
       final result = await repo.registerForFreeTournament(
         tournamentId: tournamentId,
         gameUid: state.gameUid.trim(),
+        teamName: state.teamName.trim().isNotEmpty ? state.teamName.trim() : null,
       );
 
       if (result.isSuccess) {
         state = state.copyWith(
           isLoading: false,
           isSuccess: true,
+          assignedSlot: result.assignedSlot,
           successMessage: result.message ?? 'Registration confirmed!',
         );
         return true;

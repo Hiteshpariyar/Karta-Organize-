@@ -10,6 +10,9 @@ class TournamentStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
+
     Color bg;
     Color border;
     Color text;
@@ -23,9 +26,9 @@ class TournamentStatusBadge extends StatelessWidget {
         icon = Icons.how_to_reg_rounded;
         break;
       case TournamentStatus.upcoming:
-        bg = AppColors.electricBlueDim;
-        border = AppColors.electricBlue.withValues(alpha: 0.4);
-        text = AppColors.electricBlue;
+        bg = primaryAccent.withValues(alpha: 0.12);
+        border = primaryAccent.withValues(alpha: 0.4);
+        text = primaryAccent;
         icon = Icons.event_available_rounded;
         break;
       case TournamentStatus.full:
@@ -41,27 +44,27 @@ class TournamentStatusBadge extends StatelessWidget {
         icon = Icons.sensors_rounded;
         break;
       case TournamentStatus.completed:
-        bg = AppColors.darkSurfaceBorderSubtle;
-        border = AppColors.textMuted.withValues(alpha: 0.3);
-        text = AppColors.textSecondary;
+        bg = isDark ? AppColors.darkSurfaceBorderSubtle : const Color(0xFFF1F5F9);
+        border = isDark ? AppColors.textMuted.withValues(alpha: 0.3) : const Color(0xFFCBD5E1);
+        text = isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
         icon = Icons.emoji_events_rounded;
         break;
       case TournamentStatus.cancelled:
         bg = AppColors.errorDim;
         border = AppColors.error.withValues(alpha: 0.3);
-        text = AppColors.textMuted;
+        text = isDark ? AppColors.textMuted : AppColors.lightTextMuted;
         icon = Icons.cancel_outlined;
         break;
       case TournamentStatus.registrationClosed:
-        bg = AppColors.darkSurfaceBorder;
-        border = AppColors.textMuted.withValues(alpha: 0.3);
-        text = AppColors.textSecondary;
+        bg = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFF1F5F9);
+        border = isDark ? AppColors.textMuted.withValues(alpha: 0.3) : const Color(0xFFCBD5E1);
+        text = isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
         icon = Icons.lock_clock_rounded;
         break;
       case TournamentStatus.draft:
-        bg = AppColors.darkSurfaceBorder;
-        border = AppColors.darkSurfaceBorder;
-        text = AppColors.textMuted;
+        bg = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFF1F5F9);
+        border = isDark ? AppColors.darkSurfaceBorder : const Color(0xFFCBD5E1);
+        text = isDark ? AppColors.textMuted : AppColors.lightTextMuted;
         icon = Icons.edit_note_rounded;
         break;
     }
@@ -104,18 +107,20 @@ class EntryTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isFree = entryType == EntryType.free || entryFee == 0.0;
+    final primaryAccent = isDark ? AppColors.electricBlue : const Color(0xFF7C3AED);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isFree
-            ? AppColors.electricBlueDim
+            ? primaryAccent.withValues(alpha: 0.12)
             : AppColors.neonOrangeDim,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isFree
-              ? AppColors.electricBlue.withValues(alpha: 0.4)
+              ? primaryAccent.withValues(alpha: 0.4)
               : AppColors.neonOrange.withValues(alpha: 0.4),
           width: 1,
         ),
@@ -126,13 +131,13 @@ class EntryTypeBadge extends StatelessWidget {
           Icon(
             isFree ? Icons.loyalty_rounded : Icons.lock_outline_rounded,
             size: 11,
-            color: isFree ? AppColors.electricBlue : AppColors.neonOrange,
+            color: isFree ? primaryAccent : AppColors.neonOrange,
           ),
           const SizedBox(width: 4),
           Text(
-            isFree ? 'FREE ENTRY' : 'PAID (COMING SOON)',
+            isFree ? 'FREE' : (entryFee > 0 ? '₹${entryFee.toInt()}' : 'PAID'),
             style: AppTypography.bodySmall.copyWith(
-              color: isFree ? AppColors.electricBlue : AppColors.neonOrange,
+              color: isFree ? primaryAccent : AppColors.neonOrange,
               fontWeight: FontWeight.w800,
               fontSize: 10,
               letterSpacing: 0.5,

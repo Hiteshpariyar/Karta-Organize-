@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../auth/domain/models/user_profile.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 class ProfileState {
   final String displayName;
+  final String? phoneNumber;
+  final String? phonePrivacy;
   final Map<String, String> gameUids;
   final bool isLoading;
   final String? errorMessage;
@@ -11,6 +12,8 @@ class ProfileState {
 
   const ProfileState({
     this.displayName = '',
+    this.phoneNumber,
+    this.phonePrivacy = 'friends_only',
     this.gameUids = const {},
     this.isLoading = false,
     this.errorMessage,
@@ -19,6 +22,8 @@ class ProfileState {
 
   ProfileState copyWith({
     String? displayName,
+    String? phoneNumber,
+    String? phonePrivacy,
     Map<String, String>? gameUids,
     bool? isLoading,
     String? errorMessage,
@@ -28,6 +33,8 @@ class ProfileState {
   }) {
     return ProfileState(
       displayName: displayName ?? this.displayName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      phonePrivacy: phonePrivacy ?? this.phonePrivacy,
       gameUids: gameUids ?? this.gameUids,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -42,12 +49,22 @@ class ProfileNotifier extends Notifier<ProfileState> {
     final user = ref.watch(currentUserProfileProvider);
     return ProfileState(
       displayName: user?.displayName ?? '',
+      phoneNumber: user?.phoneNumber,
+      phonePrivacy: user?.phonePrivacy ?? 'friends_only',
       gameUids: Map<String, String>.from(user?.gameUids ?? {}),
     );
   }
 
   void updateDisplayName(String name) {
     state = state.copyWith(displayName: name, clearError: true);
+  }
+
+  void updatePhone(String phone) {
+    state = state.copyWith(phoneNumber: phone, clearError: true);
+  }
+
+  void updatePhonePrivacy(String privacy) {
+    state = state.copyWith(phonePrivacy: privacy, clearError: true);
   }
 
   void updateGameUid(String gameId, String uid) {
@@ -75,6 +92,8 @@ class ProfileNotifier extends Notifier<ProfileState> {
       final result = await authRepo.updateProfile(
         displayName: state.displayName.trim(),
         gameUids: state.gameUids,
+        phoneNumber: state.phoneNumber,
+        phonePrivacy: state.phonePrivacy,
       );
 
       if (result.isSuccess) {
@@ -98,17 +117,8 @@ class ProfileNotifier extends Notifier<ProfileState> {
       return false;
     }
   }
-
-  void syncWithUser(UserProfile? user) {
-    if (user != null) {
-      state = state.copyWith(
-        displayName: user.displayName,
-        gameUids: Map<String, String>.from(user.gameUids),
-      );
-    }
-  }
 }
 
-final profileProvider = NotifierProvider<ProfileNotifier, ProfileState>(
-  ProfileNotifier.new,
-);
+final profileProvider = NotifierProvider<ProfileNotifier, ProfileState>(() {
+  return ProfileNotifier();
+});
