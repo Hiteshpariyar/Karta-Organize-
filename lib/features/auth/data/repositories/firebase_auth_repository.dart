@@ -33,15 +33,32 @@ class FirebaseAuthRepository implements IAuthRepository {
   FirebaseFirestore get _firestore => _customFirestore ?? FirebaseFirestore.instance;
 
   UserProfile? _cachedProfile;
+  bool _isSigningOut = false;
 
   @override
-  UserProfile? get currentUserProfile => _cachedProfile;
+  UserProfile? get currentUserProfile {
+    if (_isSigningOut) return null;
+    if (_cachedProfile != null) return _cachedProfile;
+    if (_isFirebaseReady && _auth.currentUser != null) {
+      final u = _auth.currentUser!;
+      return UserProfile(
+        uid: u.uid,
+        displayName: u.displayName?.isNotEmpty == true
+            ? u.displayName!
+            : (u.email?.split('@').first ?? 'Player'),
+        email: u.email ?? '',
+        emailVerified: u.emailVerified,
+        photoUrl: u.photoURL,
+      );
+    }
+    return null;
+  }
 
   @override
-  String? get currentUid => _isFirebaseReady ? _auth.currentUser?.uid : null;
+  String? get currentUid => (!_isSigningOut && _isFirebaseReady) ? _auth.currentUser?.uid : null;
 
   @override
-  bool get isAuthenticated => _isFirebaseReady && _auth.currentUser != null;
+  bool get isAuthenticated => !_isSigningOut && _isFirebaseReady && _auth.currentUser != null;
 
   @override
   Stream<UserProfile?> get authStateChanges {
@@ -50,22 +67,41 @@ class FirebaseAuthRepository implements IAuthRepository {
     }
 
     return _auth.authStateChanges().asyncMap((user) async {
-      if (user == null) {
+      if (user == null || _isSigningOut) {
         _cachedProfile = null;
         return null;
       }
       try {
         final profile = await fetchUserProfile(user.uid);
-        _cachedProfile = profile;
-        return profile;
-      } catch (_) {
-        // If profile fetch fails or document missing, return temporary unverified profile
-        return UserProfile(
+        if (profile != null) {
+          _cachedProfile = profile;
+          return profile;
+        }
+        // Fallback for authenticated user if Firestore doc has not been written yet
+        final fallback = UserProfile(
           uid: user.uid,
-          displayName: user.displayName ?? '',
+          displayName: user.displayName?.isNotEmpty == true
+              ? user.displayName!
+              : (user.email?.split('@').first ?? 'Player'),
           email: user.email ?? '',
           emailVerified: user.emailVerified,
+          photoUrl: user.photoURL,
         );
+        _cachedProfile = fallback;
+        return fallback;
+      } catch (_) {
+        // If profile fetch fails or document is missing, return temporary fallback profile
+        final fallback = UserProfile(
+          uid: user.uid,
+          displayName: user.displayName?.isNotEmpty == true
+              ? user.displayName!
+              : (user.email?.split('@').first ?? 'Player'),
+          email: user.email ?? '',
+          emailVerified: user.emailVerified,
+          photoUrl: user.photoURL,
+        );
+        _cachedProfile = fallback;
+        return fallback;
       }
     });
   }
@@ -604,9 +640,15 @@ class FirebaseAuthRepository implements IAuthRepository {
 
   @override
   Future<void> signOut() async {
+    _isSigningOut = true;
     _cachedProfile = null;
-    if (_isFirebaseReady) {
-      await _auth.signOut();
+    try {
+      if (_isFirebaseReady) {
+        await _auth.signOut();
+      }
+    } finally {
+      _isSigningOut = false;
+      _cachedProfile = null;
     }
   }
 

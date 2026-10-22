@@ -361,6 +361,25 @@ void main() {
       expect(loginResult.userProfile?.role, equals(UserRole.player));
       expect(loginResult.userProfile?.isOrganizer, isFalse);
     });
+
+    // 13. Stale token without profile or signed-out session allows access to playerLogin
+    test('13. Unprofiled or signed out session allows access to /player/login without bouncing', () async {
+      final authRepo = DevAuthRepository();
+      expect(authRepo.currentUserProfile, isNull);
+
+      final loginRedirect = appRouteGuard(
+        MockBuildContext(),
+        MockGoRouterState(AppRoutes.playerLogin),
+        authRepoOverride: authRepo,
+      );
+      expect(loginRedirect, isNull);
+    });
+
+    // 14. Version 2 configuration verification
+    test('14. Version 2 configuration and naming verified', () {
+      expect(AppConfig.appVersion, equals('2.0.0'));
+      expect(AppConfig.appName, equals('Karta Organize'));
+    });
   });
 }
 

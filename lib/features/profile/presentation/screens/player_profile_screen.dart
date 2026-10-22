@@ -155,7 +155,7 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Version: 1.0.0+1 (Production Release)',
+              'Version: 2.0.0+2 (Release Version 2)',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -233,6 +233,8 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen> {
             onPressed: () async {
               Navigator.of(ctx).pop();
               await ref.read(authRepositoryProvider).signOut();
+              ref.invalidate(currentUserProfileProvider);
+              ref.invalidate(profileProvider);
               if (mounted) {
                 context.go(AppRoutes.playerLogin);
               }
@@ -359,11 +361,98 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('Profile'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: AppColors.error),
+              tooltip: 'Sign Out / Reset Session',
+              onPressed: () async {
+                await ref.read(authRepositoryProvider).signOut();
+                ref.invalidate(currentUserProfileProvider);
+                ref.invalidate(profileProvider);
+                if (context.mounted) {
+                  context.go(AppRoutes.playerLogin);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         body: Center(
-          child: AppButton(
-            text: 'Sign In to View Profile',
-            onPressed: () => context.go(AppRoutes.playerLogin),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: primaryAccent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.account_circle_outlined,
+                    size: 64,
+                    color: primaryAccent,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Sign In Required',
+                  style: AppTypography.titleLarge.copyWith(
+                    color: isDark ? AppColors.textPrimary : AppColors.lightTextPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in or switch account to access your esports profile, customize game UIDs, and view tournament stats.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: AppButton(
+                    text: 'Sign In to View Profile',
+                    onPressed: () async {
+                      await ref.read(authRepositoryProvider).signOut();
+                      ref.invalidate(currentUserProfileProvider);
+                      ref.invalidate(profileProvider);
+                      if (context.mounted) {
+                        context.go(AppRoutes.playerLogin);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  icon: const Icon(Icons.logout_rounded, size: 18, color: AppColors.error),
+                  label: const Text('Sign Out / Reset Session', style: TextStyle(color: AppColors.error)),
+                  onPressed: () async {
+                    await ref.read(authRepositoryProvider).signOut();
+                    ref.invalidate(currentUserProfileProvider);
+                    ref.invalidate(profileProvider);
+                    if (context.mounted) {
+                      context.go(AppRoutes.playerLogin);
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Karta Organize v2.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -529,6 +618,23 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen> {
                                         user.accountStatus.value.toUpperCase(),
                                         style: TextStyle(
                                           color: user.isSuspended ? AppColors.error : AppColors.success,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: primaryAccent.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: primaryAccent.withValues(alpha: 0.3), width: 0.8),
+                                      ),
+                                      child: Text(
+                                        'v2.0',
+                                        style: TextStyle(
+                                          color: primaryAccent,
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -935,11 +1041,45 @@ class _PlayerProfileScreenState extends ConsumerState<PlayerProfileScreen> {
                           ),
                           Divider(color: isDark ? AppColors.darkSurfaceBorderSubtle : AppColors.lightSurfaceBorderSubtle),
                           ListTile(
+                            leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+                            title: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                            subtitle: Text('Log out of this device session', style: TextStyle(color: textMuted, fontSize: 12)),
+                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.error),
+                            onTap: _confirmSignOut,
+                          ),
+                          Divider(color: isDark ? AppColors.darkSurfaceBorderSubtle : AppColors.lightSurfaceBorderSubtle),
+                          ListTile(
                             leading: const Icon(Icons.delete_forever_rounded, color: AppColors.error),
                             title: const Text('Delete Account', style: TextStyle(color: AppColors.error)),
                             subtitle: Text('Permanently remove profile and data', style: TextStyle(color: textMuted, fontSize: 12)),
                             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.error),
                             onTap: _confirmDeleteAccount,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // Version 2 Release Footer
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            'Karta Organize v2.0 • Release Version 2',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Built for competitive esports tournament management',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textMuted.withValues(alpha: 0.7),
+                            ),
                           ),
                         ],
                       ),

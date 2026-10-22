@@ -167,6 +167,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                               tooltip: 'Sign Out',
                               onPressed: () async {
                                 await ref.read(authRepositoryProvider).signOut();
+                                ref.invalidate(currentUserProfileProvider);
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(

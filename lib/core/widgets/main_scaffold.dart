@@ -34,6 +34,16 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   @override
+  void didUpdateWidget(covariant MainScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex) {
+      setState(() {
+        _currentIndex = widget.initialIndex;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

@@ -61,12 +61,12 @@ String? appRouteGuard(BuildContext context, GoRouterState state, {IAuthRepositor
     }
   }
 
-  // 4. Authenticated users visiting entry or auth routes redirect to dashboard
+  // 4. Authenticated users with active profiles visiting entry or auth routes redirect to dashboard
   final isAuthEntryRoute = path == AppRoutes.playerLogin ||
       path == AppRoutes.playerRegister ||
       path == AppRoutes.welcome;
 
-  if (isAuthenticated && isAuthEntryRoute) {
+  if (isAuthenticated && profile != null && isAuthEntryRoute) {
     if (isOrganizerApproved) {
       return AppRoutes.organizerStatus;
     } else {

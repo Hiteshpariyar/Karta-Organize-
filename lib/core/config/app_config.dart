@@ -11,8 +11,8 @@ class AppConfig {
   /// Application tagline / slogan.
   static const String appTagline = 'Compete. Connect. Conquer.';
 
-  /// Application version for Phase 1.
-  static const String appVersion = '1.0.0-phase1';
+  /// Application release version.
+  static const String appVersion = '2.0.0';
 
   /// Default country calling code for phone number inputs.
   static const String defaultCountryCode = '+91';

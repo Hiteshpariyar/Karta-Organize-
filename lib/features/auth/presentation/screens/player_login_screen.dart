@@ -273,6 +273,17 @@ class _PlayerLoginScreenState extends ConsumerState<PlayerLoginScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
+            Center(
+              child: Text(
+                'v2.0 • Karta Organize',
+                style: TextStyle(
+                  color: mutedTextColor.withValues(alpha: 0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),
